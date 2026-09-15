@@ -42,7 +42,7 @@ bitness="$(getconf LONG_BIT)"
 	  done
 	 fi
 
-      export CFLAGS="-O2 -march=armv8-a+crc -mtune=cortex-a55 -ftree-vectorize -funsafe-math-optimizations"
+      export CFLAGS="-O2 -march=armv8-a+crc -mtune=cortex-a53 -ftree-vectorize -funsafe-math-optimizations"
       export CXXFLAGS="$CXXFLAGS $CFLAGS"
       export LDFLAGS="$CFLAGS"
 	  make clean

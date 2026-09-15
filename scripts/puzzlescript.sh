@@ -35,7 +35,7 @@ bitness="$(getconf LONG_BIT)"
 
 	  cd puzzlescript
  
-	  sed -i '/cortex-a72/s//cortex-a55/g' Makefile
+	  sed -i '/cortex-a72/s//cortex-a53/g' Makefile
 	  sed -i '/rpi4_64/s//rk3566/g' Makefile
       make platform=rk3566 -j$(nproc)
       if [[ $? != "0" ]]; then

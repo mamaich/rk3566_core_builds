@@ -48,12 +48,12 @@
         _opts='USE_GLES=1 V=1 VC=0 -Wno-unused-variable'
       fi
       
-      export CFLAGS="-mtune=cortex-a55 -fuse-linker-plugin"
+      export CFLAGS="-mtune=cortex-a53 -fuse-linker-plugin"
       export CXXFLAGS="$CFLAGS"
       export LDFLAGS="$CFLAGS"
       
       ./src/getRevision.sh
-      cmake -DNOHQ=On -DCRC_ARMV8=On -DEGL=0n -DNEON_OPT=On -DMUPENPLUSAPI=On -DCMAKE_CXX_FLAGS:STRING=" -march=armv8-a+crc -mtune=cortex-a55 -fuse-linker-plugin" -S src -B projects/cmake
+      cmake -DNOHQ=On -DCRC_ARMV8=On -DEGL=0n -DNEON_OPT=On -DMUPENPLUSAPI=On -DCMAKE_CXX_FLAGS:STRING=" -march=armv8-a+crc -mtune=cortex-a53 -fuse-linker-plugin" -S src -B projects/cmake
       make -C "projects/cmake" clean
 	  make -j$(nproc) -C "projects/cmake" $_opts all
 

@@ -80,7 +80,7 @@ TAG="pi4-1-9-0"
 
              mkdir build
              cd build
-             export CFLAGS="-O2 -march=armv8-a+crc -mtune=cortex-a55 -ftree-vectorize -funsafe-math-optimizations"
+             export CFLAGS="-O2 -march=armv8-a+crc -mtune=cortex-a53 -ftree-vectorize -funsafe-math-optimizations"
              export CXXFLAGS="$CXXFLAGS $CFLAGS"
              export LDFLAGS="$CFLAGS"
              if [[ "$bitness" == "64" ]]; then

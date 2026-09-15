@@ -43,7 +43,7 @@ bitness="$(getconf LONG_BIT)"
 	 fi
 
           sed -i '/armv8-a+crc+simd/s//armv8.2-a+crc+simd/g' Makefile
-	  sed -i '/cortex-a72/s//cortex-a55/g' Makefile
+	  sed -i '/cortex-a72/s//cortex-a53/g' Makefile
 	  sed -i '/rpi4/s//rk3566/' Makefile
 	  make clean
 	  make platform=rk3566 -j$(nproc)
