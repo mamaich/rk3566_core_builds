@@ -11,7 +11,33 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-TAG="pi4-1-9-0"
+# devmiyax/yabause, which this recipe used to clone at tag pi4-1-9-0, no longer
+# exists, and no surviving mirror carries that tag: sydarn/yabasanshiro and
+# Mechafatnick/YabaSanshiroPi have no tags at all, pirrypirrypirry has four and
+# none of them this one, and libretro/yabause is a different project. So the
+# choice is a different revision or nothing.
+#
+# Mechafatnick/YabaSanshiroPi is a Pi-oriented fork of the same tree, last
+# touched 2021-09-04 - roughly the era of 1.9.0. Pinned to a commit rather than
+# master so this stays reproducible.
+YABA_REPO="https://github.com/Mechafatnick/YabaSanshiroPi"
+YABA_COMMIT="91990f8620fc03d7614b9a89af166d67ff563f8c"
+TAG="mechafatnick-91990f8"
+
+# Only four of the eleven patches suit this revision, and the other seven are
+# skipped for reasons, not for convenience:
+#   01 adds #include <core.h> for a YabNanosleep(u64) prototype this revision
+#      does not have yet
+#   02 patches the nx and sdl ports, neither of which is compiled under
+#      YAB_PORTS=retro_arena
+#   08 turns off use_sh2_cache, a setting that does not exist here
+#   09 10 11 are Vulkan, and this fork has no yabause/src/vulkan at all
+# 07 is the odroidgoa menu-size patch, applied after the first build pass by
+# the logic further down, the same as before.
+YABA_PATCHES="03 04 05 06 07"
+
+# This fork carries no Vulkan backend, so the GL path is the only one there is.
+YABA_VULKAN="OFF"
 
 	# yabasanshiro Standalone build
 	if [[ "$var" == "yabasanshirosa" ]]; then
@@ -19,14 +45,24 @@ TAG="pi4-1-9-0"
 
 	  # Now we'll start the clone and build of yabasanshiro
 	  if [ ! -d "yabasanshiro/" ]; then
-		git clone --recursive https://github.com/devmiyax/yabause -b ${TAG} yabasanshiro
+		git clone --recursive ${YABA_REPO} yabasanshiro
 
 		if [[ $? != "0" ]]; then
 		  echo " "
 		  echo "There was an error while cloning the yabasanshiro standalone git.  Is Internet active or did the git location change?  Stopping here."
 		  exit 1
 		fi
-		cp patches/yabasanshirosa-patch* yabasanshiro/.
+
+		( cd yabasanshiro && git checkout -q ${YABA_COMMIT} && git submodule update --init --recursive )
+		if [[ $? != "0" ]]; then
+		  echo " "
+		  echo "Could not check out ${YABA_COMMIT} of the yabasanshiro fork.  Stopping here."
+		  exit 1
+		fi
+
+		for yaba_p in ${YABA_PATCHES}; do
+		  cp patches/yabasanshirosa-patch-${yaba_p}-* yabasanshiro/.
+		done
 	  else
 		echo " "
 		echo "A yabasanshiro subfolder already exists.  Stopping here to not impact anything in the folder that may be needed.  If not needed, please remove the yabasanshiro folder and rerun this script."
@@ -88,7 +124,7 @@ TAG="pi4-1-9-0"
                      -DYAB_PORTS=retro_arena \
                      -DYAB_WANT_DYNAREC_DEVMIYAX=ON \
                      -DYAB_WANT_ARM7=ON \
-                     -DYAB_WANT_VULKAN=ON \
+                     -DYAB_WANT_VULKAN=${YABA_VULKAN} \
                      -DUSE_EGL=ON \
                      -DCMAKE_TOOLCHAIN_FILE=../yabause/src/retro_arena/n2.cmake \
                      -DCMAKE_BUILD_TYPE=Release
