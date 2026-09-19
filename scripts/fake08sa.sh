@@ -50,6 +50,14 @@ bitness="$(getconf LONG_BIT)"
 	  done
 	  fi
 
+           # The SDL2Desktop makefile carries "-g -Wall" and no -O at all: it is
+           # meant for debugging on a PC. Every handheld target upstream ships
+           # - miyoomini, funkey-s, gcw0, bittboy - uses -Ofast, so take the
+           # same level here rather than inventing one, and add the flags this
+           # CPU wants while we are in there.
+           sed -i 's/-g -Wall -Wno-deprecated/-Ofast -march=armv8-a+crc -mtune=cortex-a53 -Wall -Wno-deprecated/' \
+             platform/SDL2Desktop/Makefile
+
            make clean-sdl2
            make sdl2 -j$(nproc)
            if [[ $? != "0" ]]; then
