@@ -61,8 +61,8 @@ TAG="v2.6"
 	    -DCMAKE_RULE_MESSAGES=OFF \
 	    -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON \
 	    -DCMAKE_BUILD_TYPE="Release" \
-	    -DCMAKE_C_FLAGS_RELEASE="-DNDEBUG" \
-	    -DCMAKE_CXX_FLAGS_RELEASE="-DNDEBUG" \
+	    -DCMAKE_C_FLAGS_RELEASE="-O3 -DNDEBUG -march=armv8-a+crc -mtune=cortex-a53" \
+	    -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -march=armv8-a+crc -mtune=cortex-a53" \
 	    -DWITH_SYSTEM_ZLIB=ON \
 	    -DUSE_PULSEAUDIO=OFF \
 	    -DUSE_OPENMP=ON \
