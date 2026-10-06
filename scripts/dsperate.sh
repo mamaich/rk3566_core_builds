@@ -53,8 +53,7 @@ bitness="$(getconf LONG_BIT)"
            cmake -DDSPERATE_TESTS=OFF \
                  -DDSPERATE_HEADLESS=OFF \
                  -DDSPERATE_WAYLAND=OFF \
-                 -DDSPERATE_PGO=use \
-                 -DDSPERATE_TUNE="-mtune=cortex-a53" --preset host
+                 -DDSPERATE_PGO=use --preset host
            cmake --build --preset host -j$(nproc)
 
            if [[ $? != "0" ]]; then
