@@ -1,0 +1,141 @@
+Chain the evdev keyboard's fatal-signal handler instead of re-raising
+
+When SDL mutes the console keyboard it installs kbd_cleanup_signal_action
+for SIGSEGV, SIGBUS and the other fatal signals. That handler put the
+previous handler back and called raise(), so a program whose own SIGSEGV
+handler is part of its normal work (write-watch pages, JIT fastmem) only
+got a re-raised signal without the fault address or the context to resume,
+and took it for a crash - the native Halo CE port died that way on dArkOS.
+
+Call the program's handler directly with the original siginfo and context,
+with the console keyboard given back meanwhile (the handler may end the
+process) and muted again when it returns having dealt with the signal -
+not when it put the default action back or left the signal pending, as a
+handler that decides on a crash does. With no handler, a hardware fault
+now returns and repeats with the default action, so the core dump shows the
+real faulting instruction; signals sent with kill() are re-raised as before.
+
+--- a/src/core/linux/SDL_evdev_kbd.c	2026-10-07 11:55:49.110304683 +0300
++++ b/src/core/linux/SDL_evdev_kbd.c	2026-10-07 11:55:49.110304683 +0300
+@@ -35,6 +35,7 @@
+ #include <linux/vt.h>
+ #include <linux/tiocl.h> /* for TIOCL_GETSHIFTSTATE */
+ 
++#include <errno.h>
+ #include <signal.h>
+ 
+ #include "../../events/SDL_events_c.h"
+@@ -190,26 +191,105 @@
+ siginfo_t *SDL_EVDEV_kdb_cleanup_siginfo = NULL;
+ void *SDL_EVDEV_kdb_cleanup_ucontext = NULL;
+ 
++/* Handlers of the program's own running at the moment, in any thread: the
++ * keyboard is muted again only when the last of them has returned. */
++static SDL_atomic_t kbd_cleanup_chained;
++
++/* A fault the kernel raised for an instruction (a bad access, an illegal
++ * opcode): returning from the handler runs that instruction again. */
++static SDL_bool kbd_signal_is_fault(int signum, const siginfo_t *info)
++{
++    if (!info || info->si_code <= 0) {
++        return SDL_FALSE; /* sent with kill(), raise() or sigqueue() */
++    }
++    return (signum == SIGSEGV || signum == SIGBUS || signum == SIGILL || signum == SIGFPE) ? SDL_TRUE : SDL_FALSE;
++}
++
++static void kbd_cleanup_signal_action(int signum, siginfo_t *info, void *ucontext);
++
++/* After the program's handler has returned: whether the process goes on.
++ * A handler that decided on a crash typically puts the default action back
++ * and raises the signal; it is blocked while the handler runs, so it is only
++ * pending yet, and kills the process as this handler returns. */
++static SDL_bool kbd_signal_handled(int signum)
++{
++    struct sigaction cur_action;
++    sigset_t pending;
++
++    if (sigaction(signum, NULL, &cur_action) != 0 ||
++        !(cur_action.sa_flags & SA_SIGINFO) || cur_action.sa_sigaction != &kbd_cleanup_signal_action) {
++        return SDL_FALSE;
++    }
++    if (sigpending(&pending) == 0 && sigismember(&pending, signum)) {
++        return SDL_FALSE;
++    }
++    return SDL_TRUE;
++}
++
+ static void kbd_cleanup_signal_action(int signum, siginfo_t *info, void *ucontext)
+ {
+     struct sigaction *old_action_p = &(old_sigaction[signum]);
++    struct sigaction old_action = *old_action_p;
++    SDL_EVDEV_keyboard_state *kbd = kbd_cleanup_state;
++    int saved_errno = errno;
+     sigset_t sigset;
+ 
+-    /* Restore original signal handler before going any further. */
+-    sigaction(signum, old_action_p, NULL);
+-
+-    /* Unmask current signal. */
+-    sigemptyset(&sigset);
+-    sigaddset(&sigset, signum);
+-    sigprocmask(SIG_UNBLOCK, &sigset, NULL);
+-
+     /* Save original signal info and context for archeologists. */
+     SDL_EVDEV_kdb_cleanup_siginfo = info;
+     SDL_EVDEV_kdb_cleanup_ucontext = ucontext;
+ 
++    /* The program has a handler of its own for this signal, installed before
++     * SDL's. Some programs take SIGSEGV or SIGBUS as part of their normal work
++     * (write-watch pages, JIT fastmem, garbage collectors): the handler deals
++     * with the fault and returns, and the instruction runs again. Call it
++     * directly, with the original siginfo and context, instead of putting it
++     * back and raising the signal anew - a raised signal has neither the fault
++     * address nor the context to resume, so such a program can only take it
++     * for a crash. The keyboard is given back to the console first, in case
++     * the handler ends the process, and muted again if it has dealt with the
++     * signal and the program goes on. */
++    if (old_action.sa_handler != SIG_DFL &&
++        !(old_action.sa_handler == SIG_IGN && kbd_signal_is_fault(signum, info))) {
++        if (kbd && SDL_AtomicIncRef(&kbd_cleanup_chained) == 0) {
++            ioctl(kbd->console_fd, KDSKBMODE, kbd->old_kbd_mode);
++        }
++        if (old_action.sa_flags & SA_RESETHAND) {
++            old_action_p->sa_handler = SIG_DFL;
++            old_action_p->sa_flags &= ~SA_SIGINFO;
++        }
++        if (old_action.sa_handler == SIG_IGN) {
++            /* ignored, as without SDL */
++        } else if (old_action.sa_flags & SA_SIGINFO) {
++            old_action.sa_sigaction(signum, info, ucontext);
++        } else {
++            old_action.sa_handler(signum);
++        }
++        if (kbd && SDL_AtomicDecRef(&kbd_cleanup_chained) && kbd_cleanup_state == kbd && kbd_signal_handled(signum)) {
++            ioctl(kbd->console_fd, KDSKBMODE, K_OFF);
++        }
++        errno = saved_errno;
++        return;
++    }
++
++    /* The default action: the process ends. Restore original signal handler
++     * before going any further. */
++    sigaction(signum, old_action_p, NULL);
++
+     /* Restore keyboard. */
+     kbd_cleanup();
+ 
++    /* A fault happens again when the handler returns, now with the default
++     * action, so the core dump shows the faulting instruction and address. */
++    if (kbd_signal_is_fault(signum, info)) {
++        errno = saved_errno;
++        return;
++    }
++
++    /* Unmask current signal. */
++    sigemptyset(&sigset);
++    sigaddset(&sigset, signum);
++    sigprocmask(SIG_UNBLOCK, &sigset, NULL);
++
+     /* Reraise signal. */
+     SDL_EVDEV_kbd_reraise_signal(signum);
+ }
