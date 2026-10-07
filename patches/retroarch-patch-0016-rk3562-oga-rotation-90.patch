@@ -1,0 +1,54 @@
+RK3562 RG52 Mini: turn the oga video driver's output the right way up
+
+The oga driver hardcodes the Odroid Go Advance's rotation: 270 degrees for
+the menu and messages, and 270 + the core's rotation for the frame. The
+RG52 Mini's portrait panel is mounted the other way round (the drm_go2
+context uses GO2_ROTATION_DEGREES_90 for it, patch 0000), so with
+video_driver = "oga" everything was upside down. Turn each case by another
+180 degrees.
+
+--- a/gfx/drivers/oga_gfx.c	2026-10-07 22:41:18.793082758 +0300
++++ b/gfx/drivers/oga_gfx.c	2026-10-07 22:41:20.477047130 +0300
+@@ -594,7 +594,7 @@
+ 
+       oga_calc_bounds(&r, vid->drm_width, vid->drm_height, width, height, aspect_ratio, vid->display_ar);
+       oga_blit(vid->menu_surface, 0, 0, width, height,
+-            page_surface, r.y, r.x, r.h, r.w, HAL_TRANSFORM_ROT_270, vid->scale_mode, 0);
++            page_surface, r.y, r.x, r.h, r.w, HAL_TRANSFORM_ROT_90, vid->scale_mode, 0);
+    }
+    else
+ #endif
+@@ -627,7 +627,7 @@
+    {
+       oga_blit(vid->msg_surface, 0, 0, vid->msg_width, vid->msg_height,
+             page_surface, 0, 0, vid->msg_height, vid->msg_width,
+-            HAL_TRANSFORM_ROT_270, vid->scale_mode, 0xff0105);
++            HAL_TRANSFORM_ROT_90, vid->scale_mode, 0xff0105);
+    }
+ 
+    if (unlikely(drmModeSetCrtc(vid->fd, vid->crtc_id, page->fb_id, 0, 0, &vid->connector_id, 1, &vid->mode) != 0))
+@@ -717,17 +717,20 @@
+ 
+    switch (rotation)
+    {
++   /* RK3562 RG52 Mini: the panel is mounted the other way round from the
++    * Odroid Go Advance's (GO2_ROTATION_DEGREES_90 in drm_go2_ctx.c), so each
++    * case is the OGA's turned by another 180 degrees. */
+    case 0:
+-      vid->rotation = HAL_TRANSFORM_ROT_270;
++      vid->rotation = HAL_TRANSFORM_ROT_90;
+       break;
+    case 1:
+-      vid->rotation = HAL_TRANSFORM_ROT_180;
++      vid->rotation = 0;
+       break;
+    case 2:
+-      vid->rotation = HAL_TRANSFORM_ROT_90;
++      vid->rotation = HAL_TRANSFORM_ROT_270;
+       break;
+    case 3:
+-      vid->rotation = 0;
++      vid->rotation = HAL_TRANSFORM_ROT_180;
+       break;
+    default:
+       RARCH_ERR("Unhandled rotation %hu\n", rotation);
