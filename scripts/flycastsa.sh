@@ -67,6 +67,7 @@ TAG="v2.6"
 	    -DUSE_PULSEAUDIO=OFF \
 	    -DUSE_OPENMP=ON \
 	    -DUSE_VULKAN=ON \
+	    -DUSE_HOST_SDL=ON \
 	    -DUSE_GLES=ON -B .
 	  
 	  make -j$(nproc)
