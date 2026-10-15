@@ -52,7 +52,6 @@ bitness="$(getconf LONG_BIT)"
       CFLAGS="-flto -fuse-linker-plugin"
       CXXFLAGS="${CFLAGS}"
       LDFLAGS="${CFLAGS}"
-	  sed -i '/a53/s//a55/g' Makefile
 	  #sed -i '/rpi3/s//rk3566/' Makefile
 	  #sed -i '/rpi3_64/s//rk3566_64/' Makefile
 
