@@ -18,6 +18,9 @@ bitness="$(getconf LONG_BIT)"
 	 cd $cur_wd
 	  if [ ! -d "flycast/" ]; then
 		git clone https://github.com/libretro/flycast.git
+		# the commit christianhaitian/retroarch-cores builds; its patches
+		# (per_pixel among them) no longer apply to master
+		git -C flycast checkout -q 4c293f3
 		if [[ $? != "0" ]]; then
 		  echo " "
 		  echo "There was an error while cloning the flycast libretro git.  Is Internet active or did the git location change?  Stopping here."
@@ -52,7 +55,9 @@ bitness="$(getconf LONG_BIT)"
 	  make clean
 
 	  if [[ "$bitness" == "64" ]]; then
-		make FORCE_GLES=1 platform=RK3566 HAVE_OPENMP=1 HAVE_LTCG=0 -j$(nproc)
+		# flycast 4c293f3 is C from before GCC 14 turned these into errors.
+		# Its Makefile resets CFLAGS, so they go in with CC.
+		make CC="cc -Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types" FORCE_GLES=1 platform=RK3566 HAVE_OPENMP=1 HAVE_LTCG=0 -j$(nproc)
 	  else 
 		make FORCE_GLES=1 platform=classic_armv8_a35 -j$(nproc)
 	  fi
