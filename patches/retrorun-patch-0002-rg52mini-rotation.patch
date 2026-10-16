@@ -1,0 +1,75 @@
+diff --git a/src/globals.cpp b/src/globals.cpp
+index 2f9e9ea..9e171c8 100755
+--- a/src/globals.cpp
++++ b/src/globals.cpp
+@@ -415,6 +415,13 @@ bool isRG351P()
+ {
+     return checkDeviceName("RG351P");
+ }
++// Anbernic RG52 Mini (RK3562): its 720x1280 panel is scanned out portrait
++// and mounted the other way round from the RG351P one, so where the RG351P
++// turns the picture 270 degrees this one needs 90. See getRotation().
++bool isRG52Mini()
++{
++    return checkDeviceName("RG52MINI");
++}
+ bool isRG351V()
+ {
+     return checkDeviceName("RG351V");
+diff --git a/src/globals.h b/src/globals.h
+index 795282d..e94e8de 100755
+--- a/src/globals.h
++++ b/src/globals.h
+@@ -197,6 +197,7 @@ bool isDuckStation();
+ const char* getDeviceName() noexcept ;
+ bool isRG351M();
+ bool isRG351P();
++bool isRG52Mini();
+ bool isRG351V();
+ bool isRG351MP();
+ bool isRG552();
+diff --git a/src/video/video-helper.cpp b/src/video/video-helper.cpp
+index 668c11b..a7f87e6 100755
+--- a/src/video/video-helper.cpp
++++ b/src/video/video-helper.cpp
+@@ -167,7 +167,7 @@ bool cmpf(float A, float B, float epsilon)
+ }
+ 
+ 
+-rr_rotation_t getBlitRotation()
++static rr_rotation_t getBlitRotationBase()
+ {
+ #ifdef RR_PLATFORM_SDL
+     if (!isTate()) return RR_ROTATION_DEGREES_0;
+@@ -209,7 +209,7 @@ rr_rotation_t getBlitRotation()
+     }
+ }
+ 
+-rr_rotation_t getRotation()
++static rr_rotation_t getRotationBase()
+ {
+ #ifdef RR_PLATFORM_SDL
+     if (!isTate()) return RR_ROTATION_DEGREES_0;
+@@ -1553,3 +1553,22 @@ void checkPaused()
+         pause_requested = false;
+     }
+ }
++
++// The RG52 Mini takes the RG351P's choices turned half a turn, in the
++// presenter and in the blits (screenshots, on-screen messages) alike.
++static rr_rotation_t rotate180(rr_rotation_t r)
++{
++    return static_cast<rr_rotation_t>((static_cast<int>(r) + 2) % 4);
++}
++
++rr_rotation_t getBlitRotation()
++{
++    rr_rotation_t r = getBlitRotationBase();
++    return isRG52Mini() ? rotate180(r) : r;
++}
++
++rr_rotation_t getRotation()
++{
++    rr_rotation_t r = getRotationBase();
++    return isRG52Mini() ? rotate180(r) : r;
++}
