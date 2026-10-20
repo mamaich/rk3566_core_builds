@@ -11,12 +11,22 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-TAG="2126.2"
+# Azahar 2126.1.2 with GammaOS's azahar-nano changes (patches/azahar-patch-000,
+# from GammaOSNextDistribution-14 8d68e5ecaab), the release they are made on,
+# and ours on top (001 layout, 002-005 to build and run them here).
+TAG="2126.1.2"
+NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
-# on an RG52 Mini with an instrumented build of this tag (2026-10-20). A new
-# profile changes this line, so the recipe's cache key changes with it.
-PGO="pgo/azahar-2126.2.profdata.gz"
-PGO_SHA256="c8bcce2217c819c73d48c4d054af5452d3fcd7e0759b6feeac58d7b12a8cd0f0"
+# on an RG52 Mini with an instrumented build of this recipe (2026-10-20),
+# merged with GammaOS's own for azahar-nano (21714041b96, 2026-10-13: Kirby,
+# Senran Kagura, Metroid, Pokemon Sun, Mario Kart 7 and Super Mario 3D Land
+# save states), ours weighted 2 so both carry about the same total count.
+# Theirs alone fits this build badly: made on Android (libc++, the NDK's
+# clang 18), 44% of its counts are on functions whose code differs here, and
+# clang drops those. A new profile changes this line, so the recipe's cache
+# key changes with it.
+PGO="pgo/azahar-nano-merged-20261020.profdata.gz"
+PGO_SHA256="60af4f31938eec43b06ee1a5ba96beed61c0ae3186e37d32e070e0bd2be79971"
 
 	# Libretro Azahar (Nintendo 3DS) build
 	if [[ "$var" == "azahar" ]] && [[ "$bitness" == "64" ]]; then
@@ -63,11 +73,12 @@ PGO_SHA256="c8bcce2217c819c73d48c4d054af5452d3fcd7e0759b6feeac58d7b12a8cd0f0"
 	  # driver on GLES (KMS), so build it, and have the core ask for a GLES 3
 	  # context: USING_GLES, which upstream sets only for Android. Vulkan too,
 	  # for the vulkan driver, which is the one RetroArch uses for this core.
-	  # clang with the profile: on the RG52 Mini it took the game from 91% to
-	  # full speed (27.3 -> 29.8 fps of 30) where gcc-style flags and ThinLTO
-	  # alone gained 1-2%. Upstream's LTO is off: it adds nothing on top of the
-	  # profile here and would need lld.
-	  pgo_flags="-fprofile-use=$cur_wd/azahar/azahar.profdata -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
+	  # clang with the profile. On the RG52 Mini (Super Mario 3D Land, 1-1,
+	  # CPU capped at 816 MHz) azahar-nano ran at 24.7 fps without one, 24.8
+	  # with GammaOS's alone and at the game's full 30 with this one; with the
+	  # CPU at 1008 MHz 2126.2 ran at 24 fps, this core at 30. Upstream's LTO
+	  # is off: it added nothing on top of a profile here and would need lld.
+	  pgo_flags="-fprofile-use=$cur_wd/azahar/azahar.profdata -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date -Wno-backend-plugin"
 	  cmake .. -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_C_COMPILER=/usr/bin/clang \
@@ -96,7 +107,7 @@ PGO_SHA256="c8bcce2217c819c73d48c4d054af5452d3fcd7e0759b6feeac58d7b12a8cd0f0"
 
 	  cp bin/Release/azahar_libretro.so ../../cores64/.
 
-	  echo ${TAG} > ../../cores64/azahar_libretro.so.commit
+	  echo ${TAG}+azahar-nano-${NANO} > ../../cores64/azahar_libretro.so.commit
 
 	  echo " "
 	  echo "azahar_libretro.so has been created and has been placed in the rk3566_core_builds/cores64 subfolder"
