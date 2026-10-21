@@ -81,11 +81,14 @@ PGO_SHA256="6709d16b1345ec79ce3a91b842b6cf435093f530c93fd592a755cd5a61888df0"
 	  # with GammaOS's alone and at the game's full 30 with this one; with the
 	  # CPU at 1008 MHz 2126.2 ran at 24 fps, this core at 30. Upstream's LTO
 	  # is off: it added nothing on top of a profile here and would need lld.
+	  # CLANG_CC/CLANG_CXX: dArkOS's image build hands in the amd64 build of
+	  # this clang, mounted into its arm64 chroot, which runs without qemu
+	  # (its xtool.sh); the same compiler, so the same core.
 	  pgo_flags="-fprofile-use=$cur_wd/azahar/azahar.profdata -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date -Wno-backend-plugin"
 	  cmake .. -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
-		-DCMAKE_C_COMPILER=/usr/bin/clang \
-		-DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
+		-DCMAKE_C_COMPILER=${CLANG_CC:-/usr/bin/clang} \
+		-DCMAKE_CXX_COMPILER=${CLANG_CXX:-/usr/bin/clang++} \
 		-DENABLE_LIBRETRO=ON \
 		-DENABLE_OPENGL=ON \
 		-DENABLE_VULKAN=ON \
