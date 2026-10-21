@@ -23,10 +23,13 @@ NANO="8d68e5ecaab"
 # save states), ours weighted 2 so both carry about the same total count.
 # Theirs alone fits this build badly: made on Android (libc++, the NDK's
 # clang 18), 44% of its counts are on functions whose code differs here, and
-# clang drops those. A new profile changes this line, so the recipe's cache
-# key changes with it.
+# clang drops those. Ours names file-local functions by the path of their
+# source, so its paths are those of this tree in the image build's chroot,
+# /home/ark/rk3562_core_builds/azahar (they carry 6% of the merged counts;
+# with the training tree's paths a chroot build lost them). A new profile
+# changes this line, so the recipe's cache key changes with it.
 PGO="pgo/azahar-nano-merged-20261020.profdata.gz"
-PGO_SHA256="60af4f31938eec43b06ee1a5ba96beed61c0ae3186e37d32e070e0bd2be79971"
+PGO_SHA256="6709d16b1345ec79ce3a91b842b6cf435093f530c93fd592a755cd5a61888df0"
 
 	# Libretro Azahar (Nintendo 3DS) build
 	if [[ "$var" == "azahar" ]] && [[ "$bitness" == "64" ]]; then
