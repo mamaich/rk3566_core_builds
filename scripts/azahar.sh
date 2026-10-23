@@ -13,7 +13,9 @@ cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
 # Azahar 2126.1.2 with GammaOS's azahar-nano changes (patches/azahar-patch-000,
 # from GammaOSNextDistribution-14 8d68e5ecaab), the release they are made on,
-# and ours on top (001 layout, 002-005 to build and run them here).
+# and ours on top (001 layout, 002-005 to build and run them here, 006-008
+# what azahar-nano has on GammaOS from its Android build and its frontend,
+# and the layout's buffer at the panel's size).
 TAG="2126.1.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
@@ -78,8 +80,9 @@ PGO_SHA256="6709d16b1345ec79ce3a91b842b6cf435093f530c93fd592a755cd5a61888df0"
 	  # for the vulkan driver, which is the one RetroArch uses for this core.
 	  # clang with the profile. On the RG52 Mini (Super Mario 3D Land, 1-1,
 	  # CPU capped at 816 MHz) azahar-nano ran at 24.7 fps without one, 24.8
-	  # with GammaOS's alone and at the game's full 30 with this one; with the
-	  # CPU at 1008 MHz 2126.2 ran at 24 fps, this core at 30. Upstream's LTO
+	  # with GammaOS's alone and at 30 with this one; with the CPU at 1008 MHz
+	  # 2126.2 ran at 24 fps, this core at 30. 30 was the GPU's limit then, half
+	  # the game's speed; patches 006-008 brought it to the full 60. Upstream's LTO
 	  # is off: it added nothing on top of a profile here and would need lld.
 	  # CLANG_CC/CLANG_CXX: dArkOS's image build hands in the amd64 build of
 	  # this clang, mounted into its arm64 chroot, which runs without qemu
