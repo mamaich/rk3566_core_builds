@@ -18,7 +18,8 @@ bitness="$(getconf LONG_BIT)"
 # and the layout's buffer at the panel's size). 009 is GammaOS's three
 # azahar-nano commits of 2026-10-20 after 8d68e5ecaab (frame pacing, right-eye
 # skip), 010 upstream's SIMD texture codec (9ee6bc70f); the profile was made
-# before them and still fits (same fps).
+# before them and still fits (same fps). 011 drops the screen swap on L3, the
+# switch under the RG52 Mini's left stick.
 TAG="2126.1.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
