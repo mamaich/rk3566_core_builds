@@ -21,7 +21,9 @@ bitness="$(getconf LONG_BIT)"
 # before them and still fits (same fps). 011 moves the screen swap from L3, the
 # switch under the RG52 Mini's left stick, to the Back key. 012 streams the save
 # states RetroArch makes through zstd and makes one per frame (a save 1.4 s
-# instead of about 27).
+# instead of about 27). 013 turns GammaOS's stereo switches on for Castlevania:
+# Lords of Shadow - Mirror of Fate and leaves out texture copies out of the right
+# eye's target, never drawn with them (its intro: 9 fps before, 20 after).
 TAG="2126.1.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
