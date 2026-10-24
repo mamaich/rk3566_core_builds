@@ -19,7 +19,7 @@ bitness="$(getconf LONG_BIT)"
 # azahar-nano commits of 2026-10-20 after 8d68e5ecaab (frame pacing, right-eye
 # skip), 010 upstream's SIMD texture codec (9ee6bc70f); the profile was made
 # before them and still fits (same fps). 011 moves the screen swap from L3, the
-# switch under the RG52 Mini's left stick, to Select+R1.
+# switch under the RG52 Mini's left stick, to the Back key.
 TAG="2126.1.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
