@@ -1,0 +1,128 @@
+From: dArkOS RG52 Mini port
+Subject: The SH-2 dynarec keeps values across calls in callee-saved registers
+
+Some of the arm64 dynarec's templates kept a register number or a value in
+w4, w5 or w6 across a call to the memory handlers (CALL_GETMEM_*), which the
+AAPCS64 lets the callee change: MOVBL, MOVWI and MOVLI (the destination
+register's offset, used after the call), AND_B and XOR_B (GBR, R0 and the
+operand), LDC_SR_INC (R[m] and its offset). With handlers that use x4, as
+GCC 12 builds this tree's, the result went to a wild address: Resident Evil
+crashed about 10 s in (SIGSEGV at "str w0, [x19, x4]" after a byte read).
+
+They now use w22-w24, which the templates' prologue saves and which OR_B
+already used. devMiyax fixed MOVBL, MOVWI, MOVLI and LDC_SR_INC's w4 the same
+way upstream (57af8f86, "bad register w4 should not be used!"); AND_B, XOR_B
+and LDC_SR_INC's w5 are fixed here too. No other template keeps a
+caller-saved register live across a call.
+
+On an RG52 Mini, Resident Evil: runs (90 s, 59.8-59.9 fps) where the build
+without it crashed with and without the BIOS.
+
+--- a/yabause/src/sh2_dynarec_devmiyax/dynalib_arm64.s
++++ b/yabause/src/sh2_dynarec_devmiyax/dynalib_arm64.s
+@@ -770,11 +770,11 @@
+ opdesc MOVBL,	28,0,4,0xff,0xff,0xff
+ opfunc MOVBL
+ mov  w0, #0  // m
+-mov  w4, #0  // n
++mov  w22, #0  // n
+ ldr  w0, [x19, x0] // w0 = R[m] 
+ CALL_GETMEM_BYTE
+ sxtb w0, w0
+-str  w0, [x19, x4]
++str  w0, [x19, x22]
+ 
+ 
+ opdesc MOVWL,		28,0,4,0xff,0xff,0xff
+@@ -1277,13 +1277,13 @@
+ opdesc AND_B,	44,0xff,0xff,0xff,0,0xff
+ opfunc AND_B
+ mov     w0, #0     // source
+-LDR_GBR w5         // GBR
+-ldr     w6, [x19]   // R[0]
+-mov     w4, w0     // 
+-add     w0, w5, w6 // GBR+w0
++LDR_GBR w23         // GBR
++ldr     w24, [x19]   // R[0]
++mov     w22, w0     // 
++add     w0, w23, w24 // GBR+w0
+ CALL_GETMEM_BYTE
+-and     w1, w0, w4  // temp &= source
+-add     w0, w5, w6  // GBR+w0
++and     w1, w0, w22  // temp &= source
++add     w0, w23, w24  // GBR+w0
+ CALL_SETMEM_BYTE
+ 
+ 
+@@ -1303,13 +1303,13 @@
+ opdesc XOR_B,	44,0xff,0xff,0xff,0,0xff
+ opfunc XOR_B
+ mov     w0, #0     // source
+-LDR_GBR w5         // GBR
+-ldr     w6, [x19]   // R[0]
+-mov     w4, w0     // 
+-add     w0, w5, w6 // GBR+w0
++LDR_GBR w23         // GBR
++ldr     w24, [x19]   // R[0]
++mov     w22, w0     // 
++add     w0, w23, w24 // GBR+w0
+ CALL_GETMEM_BYTE
+-eor     w1, w0, w4  // temp ^= source
+-add     w0, w5, w6  // GBR+w0
++eor     w1, w0, w22  // temp ^= source
++add     w0, w23, w24  // GBR+w0
+ CALL_SETMEM_BYTE
+ 
+ 
+@@ -1533,16 +1533,16 @@
+ opdesc LDC_SR_INC,	(12*4),0xff,0,0xff,0xff,0xff
+ opfunc LDC_SR_INC
+ mov     w1, #0  // m
+-ldr     w5, [x19, x1] // w5 = R[m] 
+-mov     w4, w1
+-mov     w0, w5
++ldr     w23, [x19, x1] // w23 = R[m] 
++mov     w22, w1
++mov     w0, w23
+ CALL_GETMEM_LONG
+ bic     w0, w0, #12
+ lsl     w0, w0, #22
+ lsr     w0, w0, #22  // SR = w0 & 0w000003f3;
+ STR_SR  w0
+-add     w5, w5, #4
+-str     w5, [x19, x4]
++add     w23, w23, #4
++str     w23, [x19, x22]
+ 
+ 
+ opdesc LDCGBR,	12,0xff,0,0xff,0xff,0xff
+@@ -1657,25 +1657,25 @@
+ 
+ opdesc MOVWI,	40,0xff,0,0xff,4,0xff
+ opfunc MOVWI
+-mov w4, #0 // n
++mov w22, #0 // n
+ mov w2, #0 // disp
+ mov w1, w20 // GET PC
+ add w1, w1, w2, lsl #1 // PC += (disp << 1)
+ add w0, w1, #4  // PC += 4
+ CALL_GETMEM_WORD
+ sxth w0,w0
+-str w0, [x19, x4] // R[n] = readval
++str w0, [x19, x22] // R[n] = readval
+ 
+ opdesc MOVLI,  36,0xff,0,0xff,4,0xff
+ opfunc MOVLI
+-mov w4, #0 // n
++mov w22, #0 // n
+ mov w2, #0 // disp
+ mov w1, w20 // GET PC
+ add w1, w1, #4
+ bic w1, w1, #3
+ add w0, w1, w2, lsl #2 // read addr
+ CALL_GETMEM_LONG
+-str w0, [x19, x4] // R[n] = readval
++str w0, [x19, x22] // R[n] = readval
+ 
+ 
+ opdesc MOVBL4, (8*4),0,0xff,4,0xff,0xff

@@ -34,7 +34,10 @@ TAG="mechafatnick-91990f8"
 #   09 10 11 are Vulkan, and this fork has no yabause/src/vulkan at all
 # 07 is the odroidgoa menu-size patch, applied after the first build pass by
 # the logic further down, the same as before.
-YABA_PATCHES="03 04 05 06 07"
+# 12 and 13 are ours: the sound thread sleeps instead of polling a core flat
+# out, and the SH-2 dynarec stops losing a register across memory calls
+# (Resident Evil crashed within seconds without it; see the patches).
+YABA_PATCHES="03 04 05 06 07 12 13"
 
 # This fork carries no Vulkan backend, so the GL path is the only one there is.
 YABA_VULKAN="OFF"

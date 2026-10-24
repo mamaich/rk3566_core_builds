@@ -1,0 +1,36 @@
+From: dArkOS RG52 Mini port
+Subject: The SCSP thread sleeps to its deadline instead of polling
+
+ScspAsynMainRealtime, the sound CPU's thread in the realtime mode the
+retro_arena port uses, waits for the next block of samples with
+pthread_cond_timedwait. Its Linux branch put time() into a timespec and passed
+ctime() of it, a string, as the deadline: the call failed with EINVAL at once,
+so the thread looped calling ctime(), which stats /etc/localtime each time,
+until the block was due. The deadline is now clock_gettime(CLOCK_REALTIME)
+plus the sleep, normalised.
+
+On an RG52 Mini, Resident Evil, 90 s, with patch 13: the thread 98% of a core
+before, 17% after; the process 186-195% against 105%, all four cores 49-51%
+busy against 28%; the same 59.9 fps; 73-75 C at the end against 78.
+
+--- a/yabause/src/scsp.c
++++ b/yabause/src/scsp.c
+@@ -5694,14 +5694,14 @@
+         }
+         pthread_mutex_unlock(&sync_mutex);
+ #elif defined(ARCH_IS_LINUX)    
+-        time(&tm);    
+-        long n = tm.tv_nsec;
++        clock_gettime(CLOCK_REALTIME, &tm);
+         tm.tv_nsec += sleeptime;
+-        if( n > tm.tv_nsec){
++        while (tm.tv_nsec >= 1000000000L) {
++          tm.tv_nsec -= 1000000000L;
+           tm.tv_sec += 1;
+         }
+         pthread_mutex_lock(&sync_mutex);
+-        int rtn = pthread_cond_timedwait(&sync_cnd,&sync_mutex,ctime(&tm));
++        int rtn = pthread_cond_timedwait(&sync_cnd,&sync_mutex,&tm);
+         if(rtn == 0){
+           for (i = 0; i < samplecnt; i += step) {
+             MM68KExec(step);
