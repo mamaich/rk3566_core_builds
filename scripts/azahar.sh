@@ -15,7 +15,10 @@ bitness="$(getconf LONG_BIT)"
 # from GammaOSNextDistribution-14 8d68e5ecaab), the release they are made on,
 # and ours on top (001 layout, 002-005 to build and run them here, 006-008
 # what azahar-nano has on GammaOS from its Android build and its frontend,
-# and the layout's buffer at the panel's size).
+# and the layout's buffer at the panel's size). 009 is GammaOS's three
+# azahar-nano commits of 2026-10-20 after 8d68e5ecaab (frame pacing, right-eye
+# skip), 010 upstream's SIMD texture codec (9ee6bc70f); the profile was made
+# before them and still fits (same fps).
 TAG="2126.1.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
