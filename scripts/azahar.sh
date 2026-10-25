@@ -25,6 +25,8 @@ bitness="$(getconf LONG_BIT)"
 # Lords of Shadow - Mirror of Fate and leaves out texture copies out of the right
 # eye's target, never drawn with them (its intro: 9 fps before, 20 after). 014
 # makes the two switches core options, at Auto on for the titles that need them.
+# 015 is GammaOS's e842af2339c: an offscreen draw is never left out while its
+# pipeline compiles (a texture composed once stayed wrong with a cold cache).
 TAG="2126.1.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
