@@ -23,6 +23,11 @@ never reached the core. Now (shared_cheats.cpp):
   into RetroArch becomes one of the user's own ("RetroArch code N"). The
   marks are saved at the next frame and when the game closes.
 
+A user's cheat that the database has too (same name and code) is listed
+once, where the database has it, so the two systems keep one list even
+with different databases (agreed with the GammaOS session). The folders
+are made 2770 and the files 0660, group media_rw, as Android keeps them.
+
 AZAHAR_CHEATS_DIR, AZAHAR_CHEAT_DB and AZAHAR_RA_CHEATS_DIR override the
 three paths.
 
@@ -150,7 +155,7 @@ three paths.
 +} // namespace LibRetro::SharedCheats
 --- /dev/null
 +++ b/src/citra_libretro/shared_cheats.cpp
-@@ -0,0 +1,459 @@
+@@ -0,0 +1,492 @@
 +// Copyright 2026 dArkOS RG52 Mini port
 +// Licensed under GPLv2 or any later version
 +// Refer to the license.txt file included.
@@ -167,6 +172,7 @@ three paths.
 +#include <memory>
 +#include <sstream>
 +#include <vector>
++#include <sys/stat.h>
 +#include <fmt/format.h>
 +
 +#include "citra_libretro/shared_cheats.h"
@@ -246,6 +252,33 @@ three paths.
 +    return s;
 +}
 +
++/// Android keeps its files on the shared card 0660 and its folders 0770, group media_rw (ark is in
++/// it); ours the same, so that either system can write what the other made. Fails harmlessly on
++/// what Android made (not ours to change).
++void ShareMode(const std::string& path, bool dir) {
++    chmod(path.c_str(), dir ? 02770 : 0660);
++}
++
++/// The shared folder and its custom/, made if missing, with the shared modes.
++bool MakeSharedDirs() {
++    const std::string root = SharedDir();
++    if (!FileUtil::CreateFullPath(root + "/custom/")) {
++        return false;
++    }
++    // the levels this core may have made: .../cheats/3ds/azahar and its custom/
++    std::string d = root;
++    for (const char* level : {"azahar", "3ds", "cheats"}) {
++        const auto slash = d.find_last_of('/');
++        if (slash == std::string::npos || d.substr(slash + 1) != level) {
++            break;
++        }
++        ShareMode(d, true);
++        d.erase(slash);
++    }
++    ShareMode(root + "/custom", true);
++    return true;
++}
++
 +bool ReadText(const std::string& path, std::string* out) {
 +    std::ifstream f(path, std::ios::binary);
 +    if (!f) {
@@ -270,6 +303,7 @@ three paths.
 +            return false;
 +        }
 +    }
++    ShareMode(tmp, false);
 +    if (std::rename(tmp.c_str(), path.c_str()) != 0) {
 +        std::remove(tmp.c_str());
 +        return false;
@@ -443,7 +477,7 @@ three paths.
 +
 +void UseSharedDir() {
 +    const std::string dir = SharedDir() + "/";
-+    if (FileUtil::IsDirectory(dir) || FileUtil::CreateFullPath(dir)) {
++    if (FileUtil::IsDirectory(dir) || MakeSharedDirs()) {
 +        FileUtil::UpdateUserPath(FileUtil::UserPath::CheatsDir, SharedDir());
 +    }
 +}
@@ -453,7 +487,7 @@ three paths.
 +    g_dirty = false;
 +    g_matched.clear();
 +    const std::string custom_dir = SharedDir() + "/custom/";
-+    if (title_id == 0 || !FileUtil::CreateFullPath(custom_dir)) {
++    if (title_id == 0 || !MakeSharedDirs()) {
 +        return;
 +    }
 +    WriteReadme(custom_dir);
@@ -492,12 +526,16 @@ three paths.
 +        WriteText(CustomFile(title_id), RenderText(custom));
 +    }
 +
-+    std::vector<Cheat> merged = custom;
-+    for (const Cheat& c : db) {
-+        if (!in(custom, c)) {
++    // A cheat of the user's that the database has too (the same name and code: adopted from a list
++    // that another system's database wrote) is listed once, where the database has it. GammaOS
++    // merges the same way, so both systems keep one list even when their databases differ.
++    std::vector<Cheat> merged;
++    for (const Cheat& c : custom) {
++        if (!in(db, c)) {
 +            merged.push_back(c);
 +        }
 +    }
++    merged.insert(merged.end(), db.begin(), db.end());
 +    // the marks carry over by name and code, then by name alone
 +    std::vector<bool> used(previous.size(), false);
 +    for (const bool by_code : {true, false}) {
