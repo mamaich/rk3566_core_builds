@@ -23,7 +23,8 @@ bitness="$(getconf LONG_BIT)"
 # states RetroArch makes through zstd and makes one per frame (a save 1.4 s
 # instead of about 27). 013 turns GammaOS's stereo switches on for Castlevania:
 # Lords of Shadow - Mirror of Fate and leaves out texture copies out of the right
-# eye's target, never drawn with them (its intro: 9 fps before, 20 after).
+# eye's target, never drawn with them (its intro: 9 fps before, 20 after). 014
+# makes the two switches core options, at Auto on for the titles that need them.
 TAG="2126.1.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
