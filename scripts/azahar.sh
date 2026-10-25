@@ -27,6 +27,8 @@ bitness="$(getconf LONG_BIT)"
 # makes the two switches core options, at Auto on for the titles that need them.
 # 015 is GammaOS's e842af2339c: an offscreen draw is never left out while its
 # pipeline compiles (a texture composed once stayed wrong with a cold cache).
+# 016 makes realtime audio a core option (off); 017 gives RetroArch's cheat menu
+# the cheats of a folder shared with GammaOS (ROMs/cheats/3ds/azahar) and its database.
 TAG="2126.1.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
