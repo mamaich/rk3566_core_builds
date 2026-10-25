@@ -7,7 +7,8 @@ speed still produces about a frame's worth of sound per frame of real time:
 the sound plays at its pace instead of breaking up, and can run ahead of the
 picture. GammaOS's frontend turns it on by default since 0e442662ca4. Under
 RetroArch, which paces the audio itself, it is an option (Audio > Realtime
-Audio), off by default until it has been listened to here.
+Audio), on by default: the owner listened to Castlevania's intro (21 fps)
+both ways, and with it the sound is much better.
 
 --- a/src/citra_libretro/core_settings.cpp
 +++ b/src/citra_libretro/core_settings.cpp
@@ -37,7 +38,7 @@ Audio), off by default until it has been listened to here.
 +            { config::disabled, "Disabled" },
 +            { nullptr, nullptr }
 +        },
-+        config::disabled
++        config::enabled
 +    },
  
      // Graphics Category
@@ -50,7 +51,7 @@ Audio), off by default until it has been listened to here.
 +    // dArkOS: the DSP's audio tick follows the frame time (hle.cpp), so a game below full speed
 +    // still hands RetroArch about a frame's worth of sound per frame of real time.
 +    Settings::values.enable_realtime_audio =
-+        LibRetro::FetchVariable(config::audio::enable_realtime_audio, config::disabled) ==
++        LibRetro::FetchVariable(config::audio::enable_realtime_audio, config::enabled) ==
 +        config::enabled;
  }
  
