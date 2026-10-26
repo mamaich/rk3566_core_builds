@@ -1,0 +1,65 @@
+From: dArkOS RG52 Mini port
+Subject: Vulkan: render without perf queries when there is no occlusion query pool
+
+PerfQuery makes a pool of 512 occlusion queries when the backend starts and,
+if the driver refuses it, the whole video backend fails ("Failed to create
+query pool"). malisx2 on Mali's job manager (G52, G57) has timestamp query
+pools only and answers VK_ERROR_FEATURE_NOT_PRESENT, so Dolphin did not start
+on it at all. The pool is only used with PerfQueriesEnable on
+(PerfQueryBase::ShouldEmulate; off unless a game's settings turn it on):
+without one, log a warning, leave perf queries unemulated (their results
+read 0) and go on. With a driver that makes the pool nothing changes.
+
+diff --git a/Source/Core/VideoBackends/Vulkan/VKPerfQuery.cpp b/Source/Core/VideoBackends/Vulkan/VKPerfQuery.cpp
+index 9571c69677..fc61515f99 100644
+--- a/Source/Core/VideoBackends/Vulkan/VKPerfQuery.cpp
++++ b/Source/Core/VideoBackends/Vulkan/VKPerfQuery.cpp
+@@ -31,8 +31,10 @@ bool PerfQuery::Initialize()
+ {
+   if (!CreateQueryPool())
+   {
+-    PanicAlertFmt("Failed to create query pool");
+-    return false;
++    // A driver without occlusion queries (malisx2 on Mali's job manager has timestamp pools
++    // only) still renders: perf queries, off unless a game's settings ask for them, stay off.
++    WARN_LOG_FMT(VIDEO, "No occlusion query pool: perf queries are not emulated");
++    return true;
+   }
+ 
+   // Vulkan requires query pools to be reset after creation
+@@ -43,6 +45,9 @@ bool PerfQuery::Initialize()
+ 
+ void PerfQuery::EnableQuery(PerfQueryGroup group)
+ {
++  if (m_query_pool == VK_NULL_HANDLE)
++    return;
++
+   // Block if there are no free slots.
+   // Otherwise, try to keep half of them available.
+   const u32 query_count = m_query_count.load(std::memory_order_relaxed);
+@@ -73,6 +78,9 @@ void PerfQuery::EnableQuery(PerfQueryGroup group)
+ 
+ void PerfQuery::DisableQuery(PerfQueryGroup group)
+ {
++  if (m_query_pool == VK_NULL_HANDLE)
++    return;
++
+   if (group == PQG_ZCOMP_ZCOMPLOC || group == PQG_ZCOMP)
+   {
+     vkCmdEndQuery(g_command_buffer_mgr->GetCurrentCommandBuffer(), m_query_pool, m_query_next_pos);
+@@ -93,9 +101,12 @@ void PerfQuery::ResetQuery()
+     m_results[i].store(0, std::memory_order_relaxed);
+ 
+   // Reset entire query pool, ensuring all queries are ready to write to.
+-  StateTracker::GetInstance()->EndRenderPass();
+-  vkCmdResetQueryPool(g_command_buffer_mgr->GetCurrentCommandBuffer(), m_query_pool, 0,
+-                      PERF_QUERY_BUFFER_SIZE);
++  if (m_query_pool != VK_NULL_HANDLE)
++  {
++    StateTracker::GetInstance()->EndRenderPass();
++    vkCmdResetQueryPool(g_command_buffer_mgr->GetCurrentCommandBuffer(), m_query_pool, 0,
++                        PERF_QUERY_BUFFER_SIZE);
++  }
+ 
+   std::memset(m_query_buffer.data(), 0, sizeof(ActiveQuery) * m_query_buffer.size());
+ }
