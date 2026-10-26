@@ -24,8 +24,8 @@ YABA_REPO="https://github.com/Mechafatnick/YabaSanshiroPi"
 YABA_COMMIT="91990f8620fc03d7614b9a89af166d67ff563f8c"
 TAG="mechafatnick-91990f8"
 
-# Only four of the eleven patches suit this revision, and the other seven are
-# skipped for reasons, not for convenience:
+# Five of the eleven inherited patches suit this revision (03-06, and 07
+# below), and the other six are skipped for reasons, not for convenience:
 #   01 adds #include <core.h> for a YabNanosleep(u64) prototype this revision
 #      does not have yet
 #   02 patches the nx and sdl ports, neither of which is compiled under
