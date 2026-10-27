@@ -15,14 +15,14 @@ bitness="$(getconf LONG_BIT)"
 	# Libretro onscripter build
 	if [[ "$var" == "onscripter" || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then
 	 cd $cur_wd
-	  if [ ! -d "onscripter/" ]; then
+	  if [ ! -d "onscripter-libretro/" ]; then
 		git clone --recursive https://github.com/iyzsong/onscripter-libretro
 		if [[ $? != "0" ]]; then
 		  echo " "
 		  echo "There was an error while cloning the iyzsong/onscripter git.  Is Internet active or did the git location change?  Stopping here."
 		  exit 1
 		fi
-		cp patches/onscripter-patch* onscripter/.
+		cp patches/onscripter-patch* onscripter-libretro/.
 	  fi
 
 	 cd onscripter-libretro/
@@ -45,7 +45,9 @@ bitness="$(getconf LONG_BIT)"
       ./update-deps.sh
       mkdir build
       cd build
-      cmake ..
+      # Upstream's CMakeLists names no build type and no -O: without one the core
+      # and its bundled libraries are -O0 (since upstream dropped its Makefile).
+      cmake -DCMAKE_BUILD_TYPE=Release ..
 	  make -j$(nproc)
 
 	  if [[ $? != "0" ]]; then
