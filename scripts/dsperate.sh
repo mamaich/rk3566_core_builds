@@ -11,6 +11,9 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
+# Pinned (dArkOS): a newer upstream commit is a deliberate update, not whatever
+# main is on the day of a build. e04b806 is the one 1.3 shipped.
+commit="e04b806b5c01527b08a8e7181476ada57e97db52"
 
 	# DSperate Standalone build
 	if [[ "$var" == "dsperate" ]]  && [[ "$bitness" == "64" ]]; then
@@ -25,7 +28,7 @@ bitness="$(getconf LONG_BIT)"
 		  echo "There was an error while cloning the dsperate standalone git.  Is Internet active or did the git location change?  Stopping here."
 		  exit 1
 		fi
-		cp patches/dsperate-patch* dsperate/.
+		cp patches/dsperate-patch* DSperate/.
 	  else
 		echo " "
 		echo "A dsperate subfolder already exists.  Stopping here to not impact anything in the folder that may be needed.  If not needed, please remove the dsperate folder and rerun this script."
@@ -34,6 +37,12 @@ bitness="$(getconf LONG_BIT)"
 	  fi
 
 	 cd DSperate
+	 git checkout $commit && git submodule update --init --recursive
+	 if [[ $? != "0" ]]; then
+		echo " "
+		echo "There was an error while checking out dsperate at $commit.  Stopping here."
+		exit 1
+	 fi
 
 	 dsperate_patches=$(find *.patch)
 

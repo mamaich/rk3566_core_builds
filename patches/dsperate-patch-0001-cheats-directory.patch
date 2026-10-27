@@ -1,0 +1,38 @@
+diff --git a/src/core/cheat/database.cpp b/src/core/cheat/database.cpp
+index 3a4586d..b9eeba6 100644
+--- a/src/core/cheat/database.cpp
++++ b/src/core/cheat/database.cpp
+@@ -4,6 +4,7 @@
+ 
+ #include <cstdio>
+ #include <cstring>
++#include <sys/stat.h>
+ 
+ namespace ds::cheat {
+ namespace {
+@@ -66,6 +67,10 @@ bool Database::open(const std::string& path, std::string& err) {
+ 
+   FILE* f = std::fopen(path.c_str(), "rb");
+   if (!f) { err = "cannot open " + path; return false; }
++  // fopen takes a directory as well, and on ext4 a directory's end is INT64_MAX:
++  // the resize below then threw std::bad_alloc, which ended the emulator.
++  struct stat st;
++  if (fstat(fileno(f), &st) != 0 || !S_ISREG(st.st_mode)) { std::fclose(f); err = path + " is not a file"; return false; }
+   std::fseek(f, 0, SEEK_END);
+   const long len = std::ftell(f);
+   std::fseek(f, 0, SEEK_SET);
+diff --git a/src/frontend/sdl/main.cpp b/src/frontend/sdl/main.cpp
+index 37e4e37..7236d65 100644
+--- a/src/frontend/sdl/main.cpp
++++ b/src/frontend/sdl/main.cpp
+@@ -647,7 +647,10 @@ void Session::open(NDS& nds, const ds::sdl::Config& cfg, const std::string& rom,
+     while (db.size() > 1 && (db.back() == '/' || db.back() == '\\')) db.pop_back();
+     if (!ends_with_db(db)) {
+       std::string joined = db + "/usrcheat.dat";
++      struct stat st;
+       if (FILE* f = std::fopen(joined.c_str(), "rb")) { std::fclose(f); db = joined; }
++      // A directory without one holds no database: look where the default does.
++      else if (stat(db.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) db.clear();
+     }
+   }
+   if (db.empty()) {
