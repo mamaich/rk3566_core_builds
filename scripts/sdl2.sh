@@ -85,7 +85,10 @@ fi
        #else
          mkdir build
          cd build
-         cmake -DCMAKE_INSTALL_PREFIX="${INSTALL_FOLDER}" \
+         # SDL's CMake picks no build type of its own, and without one there is
+         # no -O at all: the library was built -O0, with its debug asserts.
+         cmake -DCMAKE_BUILD_TYPE=Release \
+               -DCMAKE_INSTALL_PREFIX="${INSTALL_FOLDER}" \
 	       -DCMAKE_INSTALL_LIBDIR="${INSTALL_FOLDER}" \
                -DSDL_STATIC=OFF \
                -DSDL_LIBC=ON \
