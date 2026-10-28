@@ -11,9 +11,9 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-# Azahar 2126.1.2 with GammaOS's azahar-nano changes (patches/azahar-patch-000,
-# from GammaOSNextDistribution-14 8d68e5ecaab), the release they are made on,
-# and ours on top (001 layout, 002-005 to build and run them here, 006-008
+# Azahar 2126.2 with GammaOS's azahar-nano changes (patches/azahar-patch-000,
+# from GammaOSNextDistribution-14 8d68e5ecaab, made on 2126.1.2 and rebased
+# onto 2126.2's run loop), and ours on top (001 layout, 002-005 to build and run them here, 006-008
 # what azahar-nano has on GammaOS from its Android build and its frontend,
 # and the layout's buffer at the panel's size). 009 is GammaOS's three
 # azahar-nano commits of 2026-10-20 after 8d68e5ecaab (frame pacing, right-eye
@@ -31,7 +31,10 @@ bitness="$(getconf LONG_BIT)"
 # menu the cheats of a folder shared with GammaOS (ROMs/cheats/3ds/azahar) and its
 # database. 018 starts GammaOS's GPU timer (timestamps around every pass) only when
 # asked for, not in every game (Castlevania 50.1 -> 48.7 ms a frame on libmali).
-TAG="2126.1.2"
+# 019 is GammaOS's 1feeb9c2d16: a framebuffer the cache drops is destroyed once
+# the GPU is done with it, not while a queued render pass still uses it
+# (Monster Hunter 3 Ultimate crashed in the driver).
+TAG="2126.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
 # on an RG52 Mini with an instrumented build of this recipe (2026-10-20),
