@@ -11,7 +11,7 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-commit="59ea63f30b4784562fe04e5c849f955edcee38c8" # Release 2.7.6
+commit="0784f2135d2ac011fa40658941c9cc1ebcf65dbc" # Release 3.2.4 and two after it
 
 	# Retrorun build
 	if [[ "$var" == "retrorun" ]]; then
@@ -28,6 +28,13 @@ commit="59ea63f30b4784562fe04e5c849f955edcee38c8" # Release 2.7.6
 	fi
 
 	 cd retrorun/
+	 # The pin above is what is built: master moves under the patches.
+	 git checkout -f ${commit} && git submodule update --init --recursive
+	 if [[ $? != "0" ]]; then
+	   echo " "
+	   echo "There was an error while checking out retrorun ${commit}.  Stopping here."
+	   exit 1
+	 fi
 
 	 retrorun_patches=$(find *.patch)
 	 
