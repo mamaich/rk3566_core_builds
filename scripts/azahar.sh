@@ -36,7 +36,11 @@ bitness="$(getconf LONG_BIT)"
 # (Monster Hunter 3 Ultimate crashed in the driver). 020 is GammaOS's e62a0042457: the
 # right eye disabler tells the eyes apart by framebuffer, so Castlevania's intro and
 # cutscenes no longer flicker; with stereo_skip on, the right transfer goes on to the
-# rasterizer, which learns the right eye's target from it.
+# rasterizer, which learns the right eye's target from it. 021-026 are upstream master's
+# after 2126.2: the vertex shader JIT's masked writes (847d329ee), zero-area render passes
+# skipped (d260a99e2, 4034f6c16), null descriptors for null surfaces (7e77ca648), shadows in
+# the SPIR-V fragment shader generator (56d991979; it changes the shader cache's key, so
+# every game compiles its shaders once more) and nearest-neighbour scaling blits (d433dfded).
 TAG="2126.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
