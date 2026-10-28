@@ -33,7 +33,10 @@ bitness="$(getconf LONG_BIT)"
 # asked for, not in every game (Castlevania 50.1 -> 48.7 ms a frame on libmali).
 # 019 is GammaOS's 1feeb9c2d16: a framebuffer the cache drops is destroyed once
 # the GPU is done with it, not while a queued render pass still uses it
-# (Monster Hunter 3 Ultimate crashed in the driver).
+# (Monster Hunter 3 Ultimate crashed in the driver). 020 is GammaOS's e62a0042457: the
+# right eye disabler tells the eyes apart by framebuffer, so Castlevania's intro and
+# cutscenes no longer flicker; with stereo_skip on, the right transfer goes on to the
+# rasterizer, which learns the right eye's target from it.
 TAG="2126.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
