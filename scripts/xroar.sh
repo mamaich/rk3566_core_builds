@@ -11,7 +11,7 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-tarname="xroar-1.11.tar.gz"
+tarname="xroar-1.12.1.tar.gz"
 dirname="${tarname%.*.*}"
 
 	# xroar package
@@ -30,7 +30,7 @@ dirname="${tarname%.*.*}"
 
      ./configure --enable-dragon --enable-coco3 --enable-mc10 --without-gtk3 --without-gtk2 \
        --without-gtkgl --without-cocoa --without-oss --without-pulse \
-       --without-coreaudio --without-x
+       --without-coreaudio --without-x --without-sdl3
 
      if [[ $? != "0" ]]; then
 		  echo " "
