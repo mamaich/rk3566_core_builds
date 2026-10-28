@@ -37,7 +37,7 @@ minfluidsynthverneeded="3"
 	 cd scummvm/
 
 	 # Ensure dependencies are installed and available
-     neededlibs=( libsdl2-dev liba52-0.7.4-dev libjpeg62-turbo-dev libmpeg2-4-dev libogg-dev libvorbis-dev libflac-dev libmad0-dev libpng-dev libtheora-dev libfaad-dev libfreetype6-dev libcurl4-openssl-dev libsdl2-net-dev libspeechd-dev zlib1g-dev libfribidi-dev libglew-dev )
+     neededlibs=( libsdl2-dev libjack-jackd2-dev libfluidsynth-dev liba52-0.7.4-dev libjpeg62-turbo-dev libmpeg2-4-dev libogg-dev libvorbis-dev libflac-dev libmad0-dev libpng-dev libtheora-dev libfaad-dev libfreetype6-dev libcurl4-openssl-dev libsdl2-net-dev libspeechd-dev zlib1g-dev libfribidi-dev libglew-dev )
      updateapt="N"
      for libs in "${neededlibs[@]}"
      do
