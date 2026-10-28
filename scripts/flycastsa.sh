@@ -11,7 +11,7 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-TAG="v2.6"
+TAG="v2.7"
 
 	# flycastsa build
 	if [[ "$var" == "flycastsa" || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then
@@ -28,7 +28,8 @@ TAG="v2.6"
 
 	 cd flycast/
 	 git checkout ${TAG}
-	 git submodule update --init
+	 # 2.7's DreamPicoPort-API and tinygettext have submodules of their own
+	 git submodule update --init --recursive
 	 sed -i 's/\-O[23]/-Ofast/' CMakeLists.txt
 	 
 	 flycastsa_patches=$(find *.patch)

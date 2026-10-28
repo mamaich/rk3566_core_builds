@@ -1,0 +1,68 @@
+From 9dbca9632816d93a9c6153bc762c348727549517 Mon Sep 17 00:00:00 2001
+From: Flyinghead <raphael.jean@gmail.com>
+Date: Thu, 20 Aug 2026 15:14:43 +0200
+Subject: [PATCH] pvr: tile clipping is used for framebuffer size calculation
+ in RTT
+
+Fixes Miss Moonlight vk exception (width=0, height=0)
+---
+ core/hw/pvr/Renderer_if.cpp | 2 ++
+ core/hw/pvr/ta_ctx.h        | 1 +
+ core/hw/pvr/ta_vtx.cpp      | 5 +----
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/core/hw/pvr/Renderer_if.cpp b/core/hw/pvr/Renderer_if.cpp
+index aabca22b4..6079cdc34 100644
+--- a/core/hw/pvr/Renderer_if.cpp
++++ b/core/hw/pvr/Renderer_if.cpp
+@@ -200,6 +200,8 @@ private:
+ 		if (taContext == nullptr)
+ 			return;
+ 
++		// tile clipping is used to calculate framebuffer size in RTT below
++		setTileClipping(taContext->rend);
+ 		int width, height;
+ 		getScaledFramebufferSize(taContext->rend, width, height);
+ 		taContext->rend.framebufferWidth = width;
+diff --git a/core/hw/pvr/ta_ctx.h b/core/hw/pvr/ta_ctx.h
+index dd2a14327..ec69495cc 100644
+--- a/core/hw/pvr/ta_ctx.h
++++ b/core/hw/pvr/ta_ctx.h
+@@ -415,6 +415,7 @@ u32 ta_get_list_type();
+ void ta_set_list_type(u32 listType);
+ void ta_parse_reset();
+ void getRegionTileAddrAndSize(u32& address, u32& size);
++void setTileClipping(rend_context& ctx);
+ 
+ void sortTriangles(rend_context& ctx, RenderPass& pass, const RenderPass& previousPass);
+ void sortPolyParams(std::vector<PolyParam>& polys, int first, int end, rend_context& ctx);
+diff --git a/core/hw/pvr/ta_vtx.cpp b/core/hw/pvr/ta_vtx.cpp
+index 50ba08a0e..22fca3953 100644
+--- a/core/hw/pvr/ta_vtx.cpp
++++ b/core/hw/pvr/ta_vtx.cpp
+@@ -1207,7 +1207,7 @@ static void parseRenderPass(RenderPass& pass, const RenderPass& previousPass, re
+ 	}
+ }
+ 
+-static void setTileClipping(rend_context& ctx)
++void setTileClipping(rend_context& ctx)
+ {
+ 	u32 xmax, ymax;
+ 	getRegionTileClipping((u32&)ctx.tileClip.origin.x, xmax, (u32&)ctx.tileClip.origin.y, ymax);
+@@ -1277,7 +1277,6 @@ static void ta_parse_vdrc(TA_context* ctx, bool primRestart)
+ 		pass++;
+ 	}
+ 
+-	setTileClipping(ctx->rend);
+ 	vd_ctx = nullptr;
+ }
+ 
+@@ -1321,8 +1320,6 @@ static void ta_parse_naomi2(TA_context* ctx, bool primRestart)
+ 		}
+ 		previousPass = pass;
+ 	}
+-
+-	setTileClipping(ctx->rend);
+ }
+ 
+ void ta_parse(TA_context *ctx, bool primRestart)

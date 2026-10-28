@@ -1,0 +1,92 @@
+From 5eb52090ad934a0b230f9a6b77ebd05a124e5698 Mon Sep 17 00:00:00 2001
+From: Joe Mattiello <git@joemattiello.com>
+Date: Wed, 21 Oct 2026 06:07:57 -0400
+Subject: [PATCH] arm7: keep the V flag across logical ops in the arm64
+ recompiler (#2576)
+
+On ARMv7, AND, EOR, ORR, BIC, MOV, MVN, TST and TEQ with the S bit set
+leave V unchanged. The AArch64 instructions the recompiler uses for them
+(ANDS, BICS, TST) clear V, and storeFlags() wrote the host NZCV back as
+is, so every flag-setting logical op cleared the guest's V. A signed
+conditional branch (BVS, BGE, BLT, BGT, BLE) after such an op then went
+the wrong way. The x64 recompiler already preserves V for these ops
+(saveFlags(save_v_flag)); the interpreter does too.
+[ci skip]
+
+TST and TEQ had a save/restore under STRICT_MODE with a note that nobody
+probably relies on it. That path was never built, and it did not cover
+ANDS, EORS, ORRS, BICS, MOVS or MVNS.
+
+Restore V after the op from the PSR that loadFlags() loaded before it,
+in the same place the shifter carry is merged, for every logical op that
+sets flags. Three instructions, only on those ops.
+
+AicaArmTest.LogicOpsTest asserted exactly this (teq with C,V set must
+keep V) and failed on arm64; it passes now, with the rest of the suite.
+
+Co-authored-by: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ core/hw/arm7/arm7_rec_arm64.cpp | 36 ++++++++++++---------------------
+ 1 file changed, 13 insertions(+), 23 deletions(-)
+
+diff --git a/core/hw/arm7/arm7_rec_arm64.cpp b/core/hw/arm7/arm7_rec_arm64.cpp
+index 9492f6f61..306ec2401 100644
+--- a/core/hw/arm7/arm7_rec_arm64.cpp
++++ b/core/hw/arm7/arm7_rec_arm64.cpp
+@@ -427,32 +427,11 @@ class Arm7Compiler : public MacroAssembler
+ 				Add(rd, w0, op2);
+ 			break;
+ 		case 8:		// TST
+-#ifdef STRICT_MODE
+-			// In armv7, TST and TEQ do not affect the V flag.
+-			// This isn't the case in armv8 so we need to save
+-			// and restore it.
+-			// Since this is a bit complicated/slow, let's assume nobody
+-			// relies on this.
+-			Cset(w3, vs);
+-#endif
+ 			Tst(rn, op2);
+-#ifdef STRICT_MODE
+-			Mrs(x0, NZCV);
+-			Bfi(x0, x3, 28, 1);		// V is bit 28
+-			Msr(NZCV, x0);
+-#endif
+ 			break;
+ 		case 9:		// TEQ
+ 			Eor(w0, rn, op2);
+-#ifdef STRICT_MODE
+-			Cset(w3, vs);
+-#endif
+ 			Tst(w0, w0);
+-#ifdef STRICT_MODE
+-			Mrs(x0, NZCV);
+-			Bfi(x0, x3, 28, 1);		// V is bit 28
+-			Msr(NZCV, x0);
+-#endif
+ 			break;
+ 		case 10:	// CMP
+ 			Cmp(rn, op2);
+@@ -474,10 +453,21 @@ class Arm7Compiler : public MacroAssembler
+ 			die("invalid op");
+ 			break;
+ 		}
+-		if (set_carry_bit)
++		if (set_carry_bit || logical_op_set_flags)
+ 		{
+ 			Mrs(x0, NZCV);
+-			Bfi(x0, x14, 29, 1);		// C is bit 29 in NZCV
++			if (set_carry_bit)
++				Bfi(x0, x14, 29, 1);		// C is bit 29 in NZCV
++			if (logical_op_set_flags)
++			{
++				// ARMv7 logical ops (AND, EOR, ORR, BIC, MOV, MVN, TST, TEQ) leave V alone.
++				// The AArch64 flag-setting equivalents (ANDS, BICS, TST) clear it, so put
++				// back the V the op started with. loadFlags() ran before the op, so the
++				// saved PSR still holds it.
++				Ldr(w3, arm_reg_operand(RN_PSR_FLAGS));
++				Ubfx(w3, w3, 28, 1);		// w3 = V
++				Bfi(x0, x3, 28, 1);			// V is bit 28 in NZCV
++			}
+ 			Msr(NZCV, x0);
+ 		}
+ 	}
