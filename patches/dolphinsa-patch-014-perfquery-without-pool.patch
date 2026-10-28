@@ -11,10 +11,10 @@ without one, log a warning, leave perf queries unemulated (their results
 read 0) and go on. With a driver that makes the pool nothing changes.
 
 diff --git a/Source/Core/VideoBackends/Vulkan/VKPerfQuery.cpp b/Source/Core/VideoBackends/Vulkan/VKPerfQuery.cpp
-index 9571c69677..fc61515f99 100644
+index 9949535d88..4009601b08 100644
 --- a/Source/Core/VideoBackends/Vulkan/VKPerfQuery.cpp
 +++ b/Source/Core/VideoBackends/Vulkan/VKPerfQuery.cpp
-@@ -31,8 +31,10 @@ bool PerfQuery::Initialize()
+@@ -30,8 +30,10 @@ bool PerfQuery::Initialize()
  {
    if (!CreateQueryPool())
    {
@@ -27,7 +27,7 @@ index 9571c69677..fc61515f99 100644
    }
  
    // Vulkan requires query pools to be reset after creation
-@@ -43,6 +45,9 @@ bool PerfQuery::Initialize()
+@@ -42,6 +44,9 @@ bool PerfQuery::Initialize()
  
  void PerfQuery::EnableQuery(PerfQueryGroup group)
  {
@@ -37,7 +37,7 @@ index 9571c69677..fc61515f99 100644
    // Block if there are no free slots.
    // Otherwise, try to keep half of them available.
    const u32 query_count = m_query_count.load(std::memory_order_relaxed);
-@@ -73,6 +78,9 @@ void PerfQuery::EnableQuery(PerfQueryGroup group)
+@@ -72,6 +77,9 @@ void PerfQuery::EnableQuery(PerfQueryGroup group)
  
  void PerfQuery::DisableQuery(PerfQueryGroup group)
  {
@@ -47,7 +47,7 @@ index 9571c69677..fc61515f99 100644
    if (group == PQG_ZCOMP_ZCOMPLOC || group == PQG_ZCOMP)
    {
      vkCmdEndQuery(g_command_buffer_mgr->GetCurrentCommandBuffer(), m_query_pool, m_query_next_pos);
-@@ -93,9 +101,12 @@ void PerfQuery::ResetQuery()
+@@ -92,9 +100,12 @@ void PerfQuery::ResetQuery()
      m_results[i].store(0, std::memory_order_relaxed);
  
    // Reset entire query pool, ensuring all queries are ready to write to.

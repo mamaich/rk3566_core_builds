@@ -1,16 +1,23 @@
+From: Camden (camdenorrb), dolphin-emu/dolphin PR #13222 "Vulkan DRM/KMS support"
+Subject: Vulkan DRM/KMS support for the nogui frontend (-p drm, VK_KHR_display)
+
+PR head fd17ef5160 (2026-08-23, rebased by its author onto master b3d74ab602),
+regenerated against 2609a. Replaces patches 006 and 007 of the e6583f8 series,
+which were the same change on the old tree.
+
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index a2261730b5..4edd0fabd2 100644
+index 5ea7f8e112..39f3adf1b7 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -72,6 +72,7 @@ option(USE_DISCORD_PRESENCE "Enables Discord Rich Presence, show the current gam
- option(USE_MGBA "Enables GBA controllers emulation using libmgba" ON)
+@@ -119,6 +119,7 @@ option(USE_MGBA "Enables GBA controllers emulation using libmgba" ON)
  option(ENABLE_AUTOUPDATE "Enables support for automatic updates" ON)
- option(STEAM "Creates a build for Steam" OFF)
+ option(USE_RETRO_ACHIEVEMENTS "Enables integration with retroachievements.org" ON)
+ option(ENABLE_CCACHE "Enables CCache compiler cache" OFF)
 +option(ENABLE_DRM "Enables DRM support" OFF)
  
  # Maintainers: if you consider blanket disabling this for your users, please
  # consider the following points:
-@@ -528,6 +529,10 @@ if (OPENGL_GL)
+@@ -497,6 +498,10 @@ if (OPENGL_GL)
    include_directories(${OPENGL_INCLUDE_DIR})
  endif()
  
@@ -19,10 +26,10 @@ index a2261730b5..4edd0fabd2 100644
 +endif()
 +
  if(ENABLE_X11)
-   find_package(X11)
+   pkg_check_modules(X11 x11 IMPORTED_TARGET)
    if(X11_FOUND)
 diff --git a/Source/Core/Common/WindowSystemInfo.h b/Source/Core/Common/WindowSystemInfo.h
-index 8936ad1a02..279d57880d 100644
+index 9d154776f6..76db879c19 100644
 --- a/Source/Core/Common/WindowSystemInfo.h
 +++ b/Source/Core/Common/WindowSystemInfo.h
 @@ -13,6 +13,7 @@ enum class WindowSystemType
@@ -34,22 +41,24 @@ index 8936ad1a02..279d57880d 100644
  
  struct WindowSystemInfo
 diff --git a/Source/Core/DolphinNoGUI/CMakeLists.txt b/Source/Core/DolphinNoGUI/CMakeLists.txt
-index 202a612b5d..a8b2d14bd8 100644
+index 51c3fff708..1382610edd 100644
 --- a/Source/Core/DolphinNoGUI/CMakeLists.txt
 +++ b/Source/Core/DolphinNoGUI/CMakeLists.txt
-@@ -17,6 +17,10 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-   target_sources(dolphin-nogui PRIVATE PlatformFBDev.cpp)
+@@ -34,6 +34,12 @@ else()
+   set_target_properties(dolphin-nogui PROPERTIES OUTPUT_NAME dolphin-emu-nogui)
  endif()
  
 +if(ENABLE_DRM)
 +  target_sources(dolphin-nogui PRIVATE PlatformDRM.cpp)
 +endif()
 +
- set_target_properties(dolphin-nogui PROPERTIES OUTPUT_NAME dolphin-emu-nogui)
- 
++set_target_properties(dolphin-nogui PROPERTIES OUTPUT_NAME dolphin-emu-nogui)
++
  target_link_libraries(dolphin-nogui
+ PRIVATE
+   core
 diff --git a/Source/Core/DolphinNoGUI/MainNoGUI.cpp b/Source/Core/DolphinNoGUI/MainNoGUI.cpp
-index 11bbf55da1..3c0a5656e3 100644
+index 3bf40ea0d4..498eacb20a 100644
 --- a/Source/Core/DolphinNoGUI/MainNoGUI.cpp
 +++ b/Source/Core/DolphinNoGUI/MainNoGUI.cpp
 @@ -155,6 +155,11 @@ static std::unique_ptr<Platform> GetPlatform(const optparse::Values& options)
@@ -64,19 +73,19 @@ index 11bbf55da1..3c0a5656e3 100644
  #if HAVE_X11
    if (platform_name == "x11" || platform_name.empty())
      return Platform::CreateX11Platform();
-@@ -192,6 +197,10 @@ int main(int argc, char* argv[])
-             ,
-             "fbdev"
+@@ -196,6 +201,10 @@ int main(const int argc, char* argv[])
+                 ,
+                 "fbdev"
  #endif
 +#if HAVE_DRM
-+            ,
-+            "drm"
++				        ,
++				        "drm"
 +#endif
  #if HAVE_X11
-             ,
-             "x11"
+                 ,
+                 "x11"
 diff --git a/Source/Core/DolphinNoGUI/Platform.h b/Source/Core/DolphinNoGUI/Platform.h
-index 24ec06e307..e0b30392c9 100644
+index f4dc8a9474..3b3c869bd0 100644
 --- a/Source/Core/DolphinNoGUI/Platform.h
 +++ b/Source/Core/DolphinNoGUI/Platform.h
 @@ -30,6 +30,10 @@ public:
@@ -90,13 +99,82 @@ index 24ec06e307..e0b30392c9 100644
    static std::unique_ptr<Platform> CreateHeadlessPlatform();
  #ifdef HAVE_X11
    static std::unique_ptr<Platform> CreateX11Platform();
+diff --git a/Source/Core/DolphinNoGUI/PlatformDRM.cpp b/Source/Core/DolphinNoGUI/PlatformDRM.cpp
+new file mode 100644
+index 0000000000..557841dda2
+--- /dev/null
++++ b/Source/Core/DolphinNoGUI/PlatformDRM.cpp
+@@ -0,0 +1,63 @@
++// Copyright 2024 Dolphin Emulator Project
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include <unistd.h>
++
++#include "DolphinNoGUI/Platform.h"
++
++#include "Common/MsgHandler.h"
++#include "Core/ConfigManager.h"
++#include "Core/Core.h"
++#include "Core/State.h"
++#include "Core/System.h"
++
++#include <climits>
++#include <cstdio>
++#include <thread>
++
++#include <fcntl.h>
++#include <sys/types.h>
++
++namespace
++{
++class PlatformDRM : public Platform
++{
++public:
++  void SetTitle(const std::string& string) override;
++  void MainLoop() override;
++
++  WindowSystemInfo GetWindowSystemInfo() const override;
++};
++
++void PlatformDRM::SetTitle(const std::string& string)
++{
++  std::fprintf(stdout, "%s\n", string.c_str());
++}
++
++void PlatformDRM::MainLoop()
++{
++  while (IsRunning())
++  {
++    UpdateRunningFlag();
++    Core::HostDispatchJobs(Core::System::GetInstance());
++
++    // TODO: Is this sleep appropriate?
++    std::this_thread::sleep_for(std::chrono::milliseconds(1));
++  }
++}
++
++WindowSystemInfo PlatformDRM::GetWindowSystemInfo() const
++{
++  WindowSystemInfo wsi;
++  wsi.type = WindowSystemType::DRM;
++  wsi.display_connection = nullptr;
++  wsi.render_window = nullptr;
++  wsi.render_surface = nullptr;
++  return wsi;
++}
++}  // namespace
++
++std::unique_ptr<Platform> Platform::CreateDRMPlatform()
++{
++  return std::make_unique<PlatformDRM>();
++}
 diff --git a/Source/Core/VideoBackends/Vulkan/VKMain.cpp b/Source/Core/VideoBackends/Vulkan/VKMain.cpp
-index 46d535ce75..11e5b8445f 100644
+index 6338e52e3d..d2bb68a6ce 100644
 --- a/Source/Core/VideoBackends/Vulkan/VKMain.cpp
 +++ b/Source/Core/VideoBackends/Vulkan/VKMain.cpp
-@@ -149,11 +149,20 @@ bool VideoBackend::Initialize(const WindowSystemInfo& wsi)
-   VulkanContext::PopulateBackendInfo(&g_Config);
-   VulkanContext::PopulateBackendInfoAdapters(&g_Config, gpu_list);
+@@ -142,11 +142,20 @@ bool VideoBackend::Initialize(const WindowSystemInfo& wsi)
+   VulkanContext::PopulateBackendInfo(&g_backend_info);
+   VulkanContext::PopulateBackendInfoAdapters(&g_backend_info, gpu_list);
  
 +  // Since we haven't called InitializeShared yet, iAdapter may be out of range,
 +  // so we have to check it ourselves.
@@ -116,7 +194,7 @@ index 46d535ce75..11e5b8445f 100644
      if (surface == VK_NULL_HANDLE)
      {
        PanicAlertFmt("Failed to create Vulkan surface.");
-@@ -163,15 +172,6 @@ bool VideoBackend::Initialize(const WindowSystemInfo& wsi)
+@@ -156,15 +165,6 @@ bool VideoBackend::Initialize(const WindowSystemInfo& wsi)
      }
    }
  
@@ -133,15 +211,16 @@ index 46d535ce75..11e5b8445f 100644
    g_vulkan_context =
        VulkanContext::Create(instance, gpu_list[selected_adapter_index], surface, enable_debug_utils,
 diff --git a/Source/Core/VideoBackends/Vulkan/VKSwapChain.cpp b/Source/Core/VideoBackends/Vulkan/VKSwapChain.cpp
-index a7f5bb929d..01f09ba6ab 100644
+index 370e22d15c..bf5f8c1492 100644
 --- a/Source/Core/VideoBackends/Vulkan/VKSwapChain.cpp
 +++ b/Source/Core/VideoBackends/Vulkan/VKSwapChain.cpp
-@@ -36,8 +36,163 @@ SwapChain::~SwapChain()
+@@ -36,8 +36,164 @@ SwapChain::~SwapChain()
    DestroySurface();
  }
  
 -VkSurfaceKHR SwapChain::CreateVulkanSurface(VkInstance instance, const WindowSystemInfo& wsi)
-+VkSurfaceKHR SwapChain::CreateVulkanSurface(VkInstance instance, [[maybe_unused]] VkPhysicalDevice physical_device,
++VkSurfaceKHR SwapChain::CreateVulkanSurface(VkInstance instance,
++                                            [[maybe_unused]] VkPhysicalDevice physical_device,
 +                                            const WindowSystemInfo& wsi)
  {
 +#if defined(VK_USE_PLATFORM_DISPLAY_KHR)
@@ -301,7 +380,7 @@ index a7f5bb929d..01f09ba6ab 100644
  #if defined(VK_USE_PLATFORM_WIN32_KHR)
    if (wsi.type == WindowSystemType::Windows)
    {
-@@ -540,7 +695,8 @@ bool SwapChain::RecreateSurface(void* native_handle)
+@@ -577,7 +733,8 @@ bool SwapChain::RecreateSurface(void* native_handle)
  
    // Re-create the surface with the new native handle
    m_wsi.render_surface = native_handle;
@@ -312,7 +391,7 @@ index a7f5bb929d..01f09ba6ab 100644
      return false;
  
 diff --git a/Source/Core/VideoBackends/Vulkan/VKSwapChain.h b/Source/Core/VideoBackends/Vulkan/VKSwapChain.h
-index 5e67217f2d..7e8c9f4ec4 100644
+index 17334dbf97..2bc81bd888 100644
 --- a/Source/Core/VideoBackends/Vulkan/VKSwapChain.h
 +++ b/Source/Core/VideoBackends/Vulkan/VKSwapChain.h
 @@ -25,7 +25,8 @@ public:
@@ -326,10 +405,10 @@ index 5e67217f2d..7e8c9f4ec4 100644
    // Create a new swap chain from a pre-existing surface.
    static std::unique_ptr<SwapChain> Create(const WindowSystemInfo& wsi, VkSurfaceKHR surface,
 diff --git a/Source/Core/VideoBackends/Vulkan/VulkanContext.cpp b/Source/Core/VideoBackends/Vulkan/VulkanContext.cpp
-index 6740ae8583..f5c22043ae 100644
+index d388300b6e..22683892c6 100644
 --- a/Source/Core/VideoBackends/Vulkan/VulkanContext.cpp
 +++ b/Source/Core/VideoBackends/Vulkan/VulkanContext.cpp
-@@ -274,6 +274,20 @@ bool VulkanContext::SelectInstanceExtensions(std::vector<const char*>* extension
+@@ -362,6 +362,20 @@ bool VulkanContext::SelectInstanceExtensions(std::vector<const char*>* extension
      return false;
    }
  #endif
@@ -371,7 +450,7 @@ index d716ce49d2..da46ece849 100644
  VULKAN_INSTANCE_ENTRY_POINT(vkCreateAndroidSurfaceKHR, false)
  #endif
 diff --git a/Source/Core/VideoBackends/Vulkan/VulkanLoader.h b/Source/Core/VideoBackends/Vulkan/VulkanLoader.h
-index 652b512dd4..b43f04ccfe 100644
+index 33784d5d2e..13ad118f77 100644
 --- a/Source/Core/VideoBackends/Vulkan/VulkanLoader.h
 +++ b/Source/Core/VideoBackends/Vulkan/VulkanLoader.h
 @@ -9,6 +9,10 @@

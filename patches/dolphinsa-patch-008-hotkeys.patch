@@ -1,8 +1,19 @@
+From: dArkOS RG52 Mini port
+Subject: nogui DRM: hotkeys (008, 010 and 012 of the e6583f8 series, on 2609a)
+
+Hotkey plus Start quits, L/R load/save the slot, Up/Down pick it,
+Left/Right change the speed limit by 10%, X toggles the FPS counter.
+The Hotkey input comes after Start in the button group, matching
+button_bitmasks. Its bit, 0x2000, is PAD_GET_ORIGIN in the pad word,
+so GCPad::GetInput moves it to GCPadStatus::hotkey: the game and the
+SI device no longer see a held hotkey as a request to re-read the
+stick origin.
+
 diff --git a/Source/Core/Core/HW/GCPadEmu.cpp b/Source/Core/Core/HW/GCPadEmu.cpp
-index 470d2b8c2f..58d48f62d3 100644
+index dff79653c3..b47c39a833 100644
 --- a/Source/Core/Core/HW/GCPadEmu.cpp
 +++ b/Source/Core/Core/HW/GCPadEmu.cpp
-@@ -25,6 +25,7 @@ static const u16 button_bitmasks[] = {
+@@ -24,6 +24,7 @@ static const u16 button_bitmasks[] = {
      PAD_BUTTON_Y,
      PAD_TRIGGER_Z,
      PAD_BUTTON_START,
@@ -10,121 +21,150 @@ index 470d2b8c2f..58d48f62d3 100644
      0  // MIC HAX
  };
  
-@@ -40,7 +41,7 @@ GCPad::GCPad(const unsigned int index) : m_index(index)
- {
-   // buttons
-   groups.emplace_back(m_buttons = new ControllerEmu::Buttons(BUTTONS_GROUP));
--  for (const char* named_button : {A_BUTTON, B_BUTTON, X_BUTTON, Y_BUTTON, Z_BUTTON})
-+  for (const char* named_button : {A_BUTTON, B_BUTTON, X_BUTTON, Y_BUTTON, Z_BUTTON, HOTKEY_BUTTON})
-   {
-     m_buttons->AddInput(ControllerEmu::DoNotTranslate, named_button);
+@@ -48,6 +49,7 @@ GCPad::GCPad(const unsigned int index) : m_index(index)
    }
+   // i18n: The START/PAUSE button on GameCube controllers
+   m_buttons->AddInput(Translatability::Translate, START_BUTTON, _trans("START"));
++  m_buttons->AddInput(Translatability::Translate, HOTKEY_BUTTON, _trans("HOTKEY"));
+ 
+   // sticks
+   groups.emplace_back(m_main_stick = new ControllerEmu::OctagonAnalogStick(
+@@ -150,6 +152,8 @@ GCPadStatus GCPad::GetInput() const
+ 
+   // buttons
+   m_buttons->GetState(&pad.button, button_bitmasks, m_input_override_function);
++  pad.hotkey = (pad.button & PAD_BUTTON_HOTKEY) != 0;
++  pad.button &= ~PAD_BUTTON_HOTKEY;
+ 
+   // set analog A/B analog to full or w/e, prolly not needed
+   if (pad.button & PAD_BUTTON_A)
 diff --git a/Source/Core/Core/HW/GCPadEmu.h b/Source/Core/Core/HW/GCPadEmu.h
-index 66a1aee4e4..250aabea37 100644
+index 906f7750f3..f666709451 100644
 --- a/Source/Core/Core/HW/GCPadEmu.h
 +++ b/Source/Core/Core/HW/GCPadEmu.h
-@@ -66,6 +66,7 @@ public:
+@@ -70,6 +70,7 @@ public:
    static constexpr const char* Y_BUTTON = "Y";
    static constexpr const char* Z_BUTTON = "Z";
    static constexpr const char* START_BUTTON = "Start";
 +  static constexpr const char* HOTKEY_BUTTON = "Hotkey";
  
-   // i18n: The left trigger button (labeled L on real controllers)
-   static constexpr const char* L_DIGITAL = _trans("L");
+   // Special Triforce buttons
+   static constexpr const char* TEST_BUTTON = _trans("Test");
 diff --git a/Source/Core/DolphinNoGUI/PlatformDRM.cpp b/Source/Core/DolphinNoGUI/PlatformDRM.cpp
-index dd495ddd28..50b8de2a7d 100644
+index 557841dda2..73350d2222 100644
 --- a/Source/Core/DolphinNoGUI/PlatformDRM.cpp
 +++ b/Source/Core/DolphinNoGUI/PlatformDRM.cpp
-@@ -11,6 +11,12 @@
+@@ -11,6 +11,14 @@
  #include "Core/State.h"
  #include "Core/System.h"
  
-+#include "Core/HW/GCPad.h"
-+#include "InputCommon/GCPadStatus.h"
++#include <cmath>
 +#include <fmt/format.h>
 +#include "Core/Config/GraphicsSettings.h"
-+#include "VideoCommon/VideoConfig.h"
++#include "Core/Config/MainSettings.h"
++#include "Core/HW/GCPad.h"
++#include "InputCommon/GCPadStatus.h"
++#include "VideoCommon/OnScreenDisplay.h"
 +
  #include <climits>
  #include <cstdio>
  #include <thread>
-@@ -38,9 +44,67 @@ void PlatformDRM::MainLoop()
+@@ -36,10 +44,77 @@ void PlatformDRM::SetTitle(const std::string& string)
+ 
+ void PlatformDRM::MainLoop()
  {
++  Core::System& system = Core::System::GetInstance();
++  const auto show_emulation_speed = [] {
++    const float emulation_speed = Config::Get(Config::MAIN_EMULATION_SPEED);
++    OSD::AddMessage(emulation_speed <= 0 ?
++                        "Speed Limit: Unlimited" :
++                        fmt::format("Speed Limit: {}%", std::lround(emulation_speed * 100.f)));
++  };
++  // Hotkey + a button: Start quits, L/R load/save the slot, Up/Down pick it,
++  // Left/Right change the speed limit by 10%, X toggles the FPS counter.
++  int hotkey = 0;  // 1: released since the last action, 2: held, waiting for a button
++  u32 slot = 0;
++
    while (IsRunning())
    {
-+    static int hotkey = 0;
-+    static int slot = 0;
-+    static int fps = 0;
-+
      UpdateRunningFlag();
-     Core::HostDispatchJobs();
- 
-+    if(Pad::IsInitialized()) {
-+      GCPadStatus x = Pad::GetStatus(0);
+-    Core::HostDispatchJobs(Core::System::GetInstance());
++    Core::HostDispatchJobs(system);
 +
-+      if( (x.button & PAD_BUTTON_HOTKEY) == PAD_BUTTON_HOTKEY) { // hotkey pressed
-+	if(hotkey == 1) {
-+	  hotkey = 2;
-+	}
-+      } else {
-+	hotkey = 1; // assure hotkey is released between actions
++    if (Pad::IsInitialized())
++    {
++      const GCPadStatus pad = Pad::GetStatus(0);
++      if (!pad.hotkey)
++        hotkey = 1;
++      else if (hotkey == 1)
++        hotkey = 2;
++
++      if (hotkey == 2)
++      {
++        const auto pressed = [&pad](u16 button) { return (pad.button & button) != 0; };
++        if (pressed(PAD_BUTTON_START))
++        {
++          RequestShutdown();
++          hotkey = 0;
++        }
++        else if (pressed(PAD_TRIGGER_L))
++        {
++          State::Load(system, slot);
++          hotkey = 0;
++        }
++        else if (pressed(PAD_TRIGGER_R))
++        {
++          State::Save(system, slot);
++          hotkey = 0;
++        }
++        else if (pressed(PAD_BUTTON_DOWN) || pressed(PAD_BUTTON_UP))
++        {
++          if (pressed(PAD_BUTTON_DOWN) && slot > 0)
++            slot--;
++          else if (pressed(PAD_BUTTON_UP) && slot < 10)
++            slot++;
++          Core::DisplayMessage(fmt::format("Slot {} selected", slot), 4000);
++          hotkey = 0;
++        }
++        else if (pressed(PAD_BUTTON_RIGHT) || pressed(PAD_BUTTON_LEFT))
++        {
++          float speed = Config::Get(Config::MAIN_EMULATION_SPEED) +
++                        (pressed(PAD_BUTTON_RIGHT) ? 0.1f : -0.1f);
++          if (speed > 0)
++          {
++            speed = (speed >= 0.95f && speed <= 1.05f) ? 1.0f : speed;
++            Config::SetCurrent(Config::MAIN_EMULATION_SPEED, speed);
++          }
++          show_emulation_speed();
++          hotkey = 0;
++        }
++        else if (pressed(PAD_BUTTON_X))
++        {
++          Config::SetCurrent(Config::GFX_SHOW_FPS, !Config::Get(Config::GFX_SHOW_FPS));
++          hotkey = 0;
++        }
 +      }
-+
-+      if(hotkey == 2) { // hotkey pressed
-+	if( (x.button & PAD_BUTTON_START) == PAD_BUTTON_START) {
-+	  RequestShutdown();
-+	  hotkey = 0;
-+	}
-+
-+	if( (x.button & PAD_TRIGGER_L) == PAD_TRIGGER_L) {
-+	  State::Load(slot);
-+	  hotkey = 0;
-+	}
-+	if( (x.button & PAD_TRIGGER_R) == PAD_TRIGGER_R) {
-+	  State::Save(slot);
-+	  hotkey = 0;
-+	}
-+	if( (x.button & PAD_BUTTON_DOWN) == PAD_BUTTON_DOWN) {
-+	  if(slot > 0) slot--;
-+	  Core::DisplayMessage(fmt::format("Slot {} selected", slot), 4000);
-+	  hotkey = 0;
-+	}
-+	if( (x.button & PAD_BUTTON_UP) == PAD_BUTTON_UP) {
-+	  if(slot < 10) slot++;
-+	  Core::DisplayMessage(fmt::format("Slot {} selected", slot), 4000);
-+	  hotkey = 0;
-+	}
-+	if( (x.button & PAD_BUTTON_Y) == PAD_BUTTON_Y) {
-+	  Core::SaveScreenShot();
-+	  hotkey = 0;
-+	}
-+	if( (x.button & PAD_BUTTON_X) == PAD_BUTTON_X) {
-+	  if(fps == 0) {
-+	    Config::SetCurrent(Config::GFX_SHOW_FPS, false);
-+	    fps = 1;
-+	  } else {
-+	    Config::SetCurrent(Config::GFX_SHOW_FPS, true);
-+	    fps = 0;
-+	  }
-+	  hotkey = 0;
-+	}
-+      }
-+
 +    }
-+    //
-+
+ 
      // TODO: Is this sleep appropriate?
      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-   }
 diff --git a/Source/Core/InputCommon/GCPadStatus.h b/Source/Core/InputCommon/GCPadStatus.h
-index 74849e5594..029ade5824 100644
+index e126654b31..c10bd629af 100644
 --- a/Source/Core/InputCommon/GCPadStatus.h
 +++ b/Source/Core/InputCommon/GCPadStatus.h
-@@ -26,6 +26,7 @@ enum PadButton
+@@ -26,6 +26,9 @@ enum PadButton
    PAD_BUTTON_X = 0x0400,
    PAD_BUTTON_Y = 0x0800,
    PAD_BUTTON_START = 0x1000,
++  // dArkOS: the hotkey. 0x2000 is PAD_GET_ORIGIN on the wire, so GCPad::GetInput moves it
++  // to GCPadStatus::hotkey and it never reaches the game.
 +  PAD_BUTTON_HOTKEY = 0x2000,
  };
  
- struct GCPadStatus
+ enum SwitchButton
+@@ -56,4 +59,5 @@ struct GCPadStatus
+   // Triforce
+   u8 switches = 0;
+   bool isConnected = true;
++  bool hotkey = false;  // dArkOS hotkey, read by PlatformDRM
+ };

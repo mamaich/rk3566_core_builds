@@ -11,7 +11,8 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-TAG="e6583f8bec814d8f3748f1d7738457600ce0de5"
+# 2609a (2026-10-08), by its full id: "2609a" is a hex prefix as well
+TAG="409881c34357d0f105fd473167d15ab0bd9c1628"
 	# dolphin Standalone build
 	if [[ "$var" == "dolphinsa" ]] && [[ "$bitness" == "64" ]]; then
 	 cd $cur_wd
@@ -37,8 +38,6 @@ TAG="e6583f8bec814d8f3748f1d7738457600ce0de5"
 	 git checkout ${TAG}
 	 git submodule update --init --recursive
 	 dolphin_patches=$(find *.patch)
-	 sed -i 's~#include <cstdlib>~#include <cstdlib>\n#include <cstdint>~g' Externals/VulkanMemoryAllocator/include/vk_mem_alloc.h
-	 sed -i 's~#include <cstdint>~#include <cstdint>\n#include <string>~g' Externals/VulkanMemoryAllocator/include/vk_mem_alloc.h
 
 	 if [[ ! -z "$dolphin_patches" ]]; then
 	  for patching in dolphinsa-patch*
@@ -60,7 +59,6 @@ TAG="e6583f8bec814d8f3748f1d7738457600ce0de5"
              cmake -DENABLE_HEADLESS=ON \
              -DENABLE_EGL=ON \
              -DENABLE_EVDEV=ON \
-             -DLINUX_LOCAL_DEV=ON \
              -DENABLE_TESTS=OFF \
              -DENABLE_LLVM=OFF \
              -DENABLE_ANALYTICS=OFF \
@@ -78,8 +76,12 @@ TAG="e6583f8bec814d8f3748f1d7738457600ce0de5"
              -DUSE_DISCORD_PRESENCE=OFF \
              -DENABLE_DRM=ON \
              -DUSE_MGBA=OFF \
-             -DENABLE_SDL=ON \
-             -DENABLE_WAYLAND=OFF \
+             -DENABLE_SDL=OFF \
+             -DUSE_SYSTEM_FMT=OFF \
+             -DUSE_SYSTEM_GLSLANG=OFF \
+             -DUSE_SYSTEM_XXHASH=OFF \
+             -DUSE_UPNP=OFF \
+             -DENABLE_CUBEB=OFF \
              -DENCODE_FRAMEDUMPS=OFF ..
 
              if [[ $? != "0" ]]; then
@@ -99,7 +101,7 @@ TAG="e6583f8bec814d8f3748f1d7738457600ce0de5"
              #sed -i 's|/usr/local/lib/aarch64-linux-gnu/libEGL\.so|/opt/dolphin/lib/libmali.so|g' CMakeCache.txt
              #sed -i 's|/usr/lib/aarch64-linux-gnu/libEGL\.so|/opt/dolphin/lib/libmali.so|g' CMakeCache.txt
 	   #fi
-           make -j$(nproc)
+           make -j$(nproc) dolphin-nogui
            if [[ $? != "0" ]]; then
 		     echo " "
 		     echo "There was an error that occured while making the dolphin standalone.  Stopping here."
