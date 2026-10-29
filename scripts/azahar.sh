@@ -44,6 +44,8 @@ bitness="$(getconf LONG_BIT)"
 # 027 loads the disk shader cache on a thread, with RetroArch's progress message meanwhile.
 # 028 makes the texture upload ring 128 MiB, not 512: Mali's kernel driver backs all of it
 # with RAM that cannot be swapped, and RetroArch takes about 345 MB less with it.
+# 029 makes an RGBA8 surface whose storage 000 defers without storage usage at all: the
+# format's traits carried it, so libmali did not compress Azahar's colour targets (AFBC).
 TAG="2126.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
