@@ -41,6 +41,9 @@ bitness="$(getconf LONG_BIT)"
 # skipped (d260a99e2, 4034f6c16), null descriptors for null surfaces (7e77ca648), shadows in
 # the SPIR-V fragment shader generator (56d991979; it changes the shader cache's key, so
 # every game compiles its shaders once more) and nearest-neighbour scaling blits (d433dfded).
+# 027 loads the disk shader cache on a thread, with RetroArch's progress message meanwhile.
+# 028 makes the texture upload ring 128 MiB, not 512: Mali's kernel driver backs all of it
+# with RAM that cannot be swapped, and RetroArch takes about 345 MB less with it.
 TAG="2126.2"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
