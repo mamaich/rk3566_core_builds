@@ -11,19 +11,22 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
+# rg52mini: pinned (2026-10-28), the build tried on the console
+commit="20061e22f3cf36d805e4c48e0a53a0f58802f84a"
 
 	# Libretro armgba build
 	if [[ "$var" == "armgba" || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then
 	 gba_rumblepatch="no"
 	 cd $cur_wd
-	  if [ ! -d "armgba/" ]; then
-		git clone --recursive https://github.com/MagnominusGit/armGBA.git
+	  if [ ! -d "armGBA/" ]; then
+		git clone --recursive https://github.com/MagnominusGit/armGBA.git &&
+		git -C armGBA checkout -q $commit && git -C armGBA submodule update -q --init --recursive
 		if [[ $? != "0" ]]; then
 		  echo " "
 		  echo "There was an error while cloning the libretro git.  Is Internet active or did the git location change?  Stopping here."
 		  exit 1
 		 fi
-		cp patches/armgba-patch* armgba/.
+		cp patches/armgba-patch* armGBA/. 2>/dev/null
 	  fi
 
 	 cd armGBA/
@@ -43,8 +46,8 @@ bitness="$(getconf LONG_BIT)"
 	  done
 	 fi
 	  cmake -S . -B build-aarch64 -G Ninja \
-                 -DCMAKE_C_FLAGS="-march=armv8-a+crc -mtune=cortex-a55" \
-                 -DCMAKE_CXX_FLAGS="-march=armv8-a+crc -mtune=cortex-a55"
+                 -DCMAKE_C_FLAGS="-march=armv8-a+crc -mtune=cortex-a53" \
+                 -DCMAKE_CXX_FLAGS="-march=armv8-a+crc -mtune=cortex-a53"
 	  ninja -C build-aarch64
 
 	  if [[ $? != "0" ]]; then
@@ -60,6 +63,7 @@ bitness="$(getconf LONG_BIT)"
 	  fi
 
 	  cp build-aarch64/armgba_libretro.so ../cores64/.
+	  cp libretro/armgba_libretro.info ../cores64/.
 
 	  gitcommit=$(git log | grep -m 1 commit | cut -c -14 | cut -c 8-)
 	  echo $gitcommit > ../cores$(getconf LONG_BIT)/$(basename $PWD | tr '[:upper:]' '[:lower:]')_libretro.so.commit
