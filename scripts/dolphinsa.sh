@@ -11,8 +11,9 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-# 2609a (2026-10-08), by its full id: "2609a" is a hex prefix as well
-TAG="409881c34357d0f105fd473167d15ab0bd9c1628"
+# master of 2026-10-31, after 2609a (2026-10-08), by its full id: on the console
+# the ND Demo within the spread of 2609a's, savestates the same version (192)
+TAG="c4856ead6420cceb48744815d79d6be59febb5ff"
 	# dolphin Standalone build
 	if [[ "$var" == "dolphinsa" ]] && [[ "$bitness" == "64" ]]; then
 	 cd $cur_wd
