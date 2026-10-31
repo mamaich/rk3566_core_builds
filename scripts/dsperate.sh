@@ -12,8 +12,11 @@
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
 # Pinned (dArkOS): a newer upstream commit is a deliberate update, not whatever
-# main is on the day of a build. e04b806 is the one 1.3 shipped.
-commit="e04b806b5c01527b08a8e7181476ada57e97db52"
+# main is on the day of a build. e04b806 was the one 1.3 to 1.4 shipped; f608b4c
+# (2026-10-31) was tried on the dual-boot card: the ARM9 IPC FIFO delivered at
+# send time, the lean rasterizer's attributes as the DS has them, the frontend no
+# longer realtime, scanout buffers off CMA where the display has an IOMMU.
+commit="f608b4c54e60d2d9f022a7c7a6092c415ea49597"
 
 	# DSperate Standalone build
 	if [[ "$var" == "dsperate" ]]  && [[ "$bitness" == "64" ]]; then
