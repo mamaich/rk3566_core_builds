@@ -1,0 +1,61 @@
+From: dArkOS RG52 Mini port
+Subject: The DRM context takes mode 0 or the one /var/run/drmMode names
+
+Patch 0012 of v1.22.2 for master: no mode guessed from the game's size.
+
+diff --git a/gfx/drivers_context/drm_ctx.c b/gfx/drivers_context/drm_ctx.c
+index 5ebfc2e..03a0cda 100644
+--- a/gfx/drivers_context/drm_ctx.c
++++ b/gfx/drivers_context/drm_ctx.c
+@@ -1160,6 +1160,8 @@ static bool gfx_ctx_drm_set_video_mode(void *data,
+    settings_t *settings            = config_get_ptr();
+    unsigned black_frame_insertion  = settings->uints.video_black_frame_insertion;
+    float video_refresh_rate        = settings->floats.video_refresh_rate;
++   FILE* fdDrmMode;
++   int drmMode;
+ 
+    if (!drm)
+       return false;
+@@ -1173,34 +1175,15 @@ static bool gfx_ctx_drm_set_video_mode(void *data,
+    /* Find desired video mode, and use that.
+     * If not fullscreen, we get desired windowed size,
+     * which is not appropriate. */
+-   if (drm_mode_from_crt_switch(&gfx_ctx_crt_switch_mode))
+-   {
+-      RARCH_DBG("[KMS] New mode detected: %dx%d.\n", gfx_ctx_crt_switch_mode.hdisplay, gfx_ctx_crt_switch_mode.vdisplay);
+-      g_drm_mode     = &gfx_ctx_crt_switch_mode;
+-      drm->fb_width  = gfx_ctx_crt_switch_mode.hdisplay;
+-      drm->fb_height = gfx_ctx_crt_switch_mode.vdisplay;
+-      switch_mode    = true;
+-      /* Let's exit, since modeswitching will happen while swapping buffers */
+-      return true;
+-   }
+-   if ((width == 0 && height == 0) || !fullscreen)
+-   {
+-      RARCH_WARN("[KMS] Falling back to mode 0 (default).\n");
+-      g_drm_mode     = &g_drm_connector->modes[0];
+-   }
+-   else
++   /* dArkOS (as batocera): no mode is guessed from the game's size; mode 0,
++    * or the one /var/run/drmMode names. */
++   g_drm_mode = &g_drm_connector->modes[0];
++   if ((fdDrmMode = fopen("/var/run/drmMode", "r")) != NULL)
+    {
+-      /* check if custom HDMI timings were asked */
+-      if (gfx_ctx_crt_switch_mode.vdisplay > 0)
+-      {
+-         RARCH_LOG("[KMS] Custom mode requested: %s.\n", gfx_ctx_crt_switch_mode.name);
+-         g_drm_mode  = &gfx_ctx_crt_switch_mode;
+-      }
+-      else
+-      {
+-         g_drm_mode = drm_find_mode(g_drm_connector, width, height,
+-               refresh_mod, video_refresh_rate);
+-      }
++      if (fscanf(fdDrmMode, "%i", &drmMode) == 1)
++         if (drmMode >= 0 && drmMode < g_drm_connector->count_modes)
++            g_drm_mode = &g_drm_connector->modes[drmMode];
++      fclose(fdDrmMode);
+    }
+ 
+    if (!g_drm_mode)

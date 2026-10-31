@@ -1,0 +1,178 @@
+From: dArkOS RG52 Mini port
+Subject: oga driver turned for the RG52 Mini; /var/run/drmConn; a mode when none is preferred
+
+Patches 0010, 0014 and 0016 of v1.22.2 for master (its libgo2 hunks gone
+with libgo2): the oga video driver's turns 180 degrees round from the
+OGA's, the DRM connector from /var/run/drmConn in drm_common, and the first
+mode when a connector marks none preferred, in oga and in drm_go2 too.
+
+diff --git a/gfx/common/drm_common.c b/gfx/common/drm_common.c
+index fd96cc6..f07e2f6 100644
+--- a/gfx/common/drm_common.c
++++ b/gfx/common/drm_common.c
+@@ -81,6 +81,21 @@ bool drm_get_connector(int fd, unsigned monitor_index)
+    unsigned i;
+    unsigned monitor_index_count = 0;
+    unsigned monitor       = MAX(monitor_index, 1);
++   int drmConn = 0;
++
++   // batocera
++   {
++     FILE* fdDrmConn;
++     int drmConnRead;
++     if((fdDrmConn = fopen("/var/run/drmConn", "r")) != NULL) {
++       if(fscanf(fdDrmConn, "%i", &drmConnRead) == 1) {
++    if(drmConnRead>=0 && drmConn<g_drm_resources->count_connectors) {
++      drmConn = drmConnRead;
++    }
++       }
++     }
++   }
++   //
+ 
+    /* Enumerate all connectors. */
+ 
+@@ -88,7 +103,11 @@ bool drm_get_connector(int fd, unsigned monitor_index)
+ 
+    for (i = 0; (int)i < g_drm_resources->count_connectors; i++)
+    {
+-      drmModeConnectorPtr conn = drmModeGetConnector(
++      drmModeConnectorPtr conn;
++
++      if(i != drmConn) continue;
++
++      conn = drmModeGetConnector(
+             fd, g_drm_resources->connectors[i]);
+ 
+       if (conn)
+@@ -109,6 +128,8 @@ bool drm_get_connector(int fd, unsigned monitor_index)
+ 
+    for (i = 0; (int)i < g_drm_resources->count_connectors; i++)
+    {
++      if(i != drmConn) continue;
++
+       g_drm_connector = drmModeGetConnector(fd,
+             g_drm_resources->connectors[i]);
+ 
+diff --git a/gfx/drivers/oga_gfx.c b/gfx/drivers/oga_gfx.c
+index 53eead8..5e04536 100644
+--- a/gfx/drivers/oga_gfx.c
++++ b/gfx/drivers/oga_gfx.c
+@@ -156,6 +156,7 @@ static bool oga_create_display(oga_video_t* vid)
+    drmModeModeInfo *mode;
+    drmModeEncoder *encoder;
+    drmModeRes *resources;
++   int drmConn = 0;
+ 
+    vid->fd = open("/dev/dri/card0", O_RDWR);
+    if (vid->fd < 0)
+@@ -171,8 +172,24 @@ static bool oga_create_display(oga_video_t* vid)
+       goto err_01;
+    }
+ 
++   // batocera
++   {
++     FILE* fdDrmConn;
++     int drmConnRead;
++     if((fdDrmConn = fopen("/var/run/drmConn", "r")) != NULL) {
++       if(fscanf(fdDrmConn, "%i", &drmConnRead) == 1) {
++    if(drmConnRead>=0 && drmConn<resources->count_connectors) {
++      drmConn = drmConnRead;
++    }
++       }
++     }
++   }
++   //
++
+    for (i = 0; i < resources->count_connectors; i++)
+    {
++      if(i != drmConn) continue;
++
+       connector = drmModeGetConnector(vid->fd, resources->connectors[i]);
+       if (connector->connection == DRM_MODE_CONNECTED)
+          break;
+@@ -190,6 +207,7 @@ static bool oga_create_display(oga_video_t* vid)
+    vid->connector_id = connector->connector_id;
+ 
+    /* Find preferred mode */
++   mode = &connector->modes[0];
+    for (i = 0; i < connector->count_modes; i++)
+    {
+       drmModeModeInfo *current_mode = &connector->modes[i];
+@@ -198,14 +216,6 @@ static bool oga_create_display(oga_video_t* vid)
+          mode = current_mode;
+          break;
+       }
+-
+-      mode = NULL;
+-   }
+-
+-   if (!mode)
+-   {
+-      RARCH_ERR("DRM_MODE_TYPE_PREFERRED not found.\n");
+-      goto err_03;
+    }
+ 
+    vid->mode   = *mode;
+@@ -1022,7 +1032,7 @@ static bool oga_frame(void *data, const void *frame,
+       oga_calc_bounds(&r, vid->drm_width, vid->drm_height, width, height, aspect_ratio, vid->display_ar);
+       oga_prepare_page(vid, page, &r, OGA_PAGE_MENU, 0);
+       oga_blit(vid->menu_surface, 0, 0, width, height,
+-            page_surface, r.y, r.x, r.h, r.w, HAL_TRANSFORM_ROT_270, vid->scale_mode, 0);
++            page_surface, r.y, r.x, r.h, r.w, HAL_TRANSFORM_ROT_90, vid->scale_mode, 0);
+    }
+    else
+ #endif
+@@ -1081,7 +1091,7 @@ static bool oga_frame(void *data, const void *frame,
+    {
+       oga_blit(vid->msg_surface, 0, 0, vid->msg_width, vid->msg_height,
+             page_surface, 0, 0, vid->msg_height, vid->msg_width,
+-            HAL_TRANSFORM_ROT_270, vid->scale_mode, 0xff0105);
++            HAL_TRANSFORM_ROT_90, vid->scale_mode, 0xff0105);
+       /* It may lie over the borders, which the next frame on this page
+        * does not redraw */
+       page->dirty = true;
+@@ -1181,17 +1191,20 @@ static void oga_set_rotation(void *data, unsigned rotation)
+ 
+    switch (rotation)
+    {
++   /* RK3562 RG52 Mini: the panel is mounted the other way round from the
++    * Odroid Go Advance's (GO2_ROTATION_DEGREES_90 in drm_go2_ctx.c), so each
++    * case is the OGA's turned by another 180 degrees. */
+    case 0:
+-      vid->rotation = HAL_TRANSFORM_ROT_270;
++      vid->rotation = HAL_TRANSFORM_ROT_90;
+       break;
+    case 1:
+-      vid->rotation = HAL_TRANSFORM_ROT_180;
++      vid->rotation = 0;
+       break;
+    case 2:
+-      vid->rotation = HAL_TRANSFORM_ROT_90;
++      vid->rotation = HAL_TRANSFORM_ROT_270;
+       break;
+    case 3:
+-      vid->rotation = 0;
++      vid->rotation = HAL_TRANSFORM_ROT_180;
+       break;
+    default:
+       RARCH_ERR("Unhandled rotation %hu\n", rotation);
+diff --git a/gfx/drivers_context/drm_go2_ctx.c b/gfx/drivers_context/drm_go2_ctx.c
+index 2dfd4e9..fd8ea92 100644
+--- a/gfx/drivers_context/drm_go2_ctx.c
++++ b/gfx/drivers_context/drm_go2_ctx.c
+@@ -264,8 +264,13 @@ static bool go2_find_output(gfx_ctx_go2_drm_data_t *drm)
+    for (i = 0; i < conn->count_modes; i++)
+       if (conn->modes[i].type & DRM_MODE_TYPE_PREFERRED)
+          break;
++   /* RK3562: no preferred mode (some HDMI sinks): the first one */
+    if (i == conn->count_modes)
+-      goto error;
++   {
++      if (!conn->count_modes)
++         goto error;
++      i = 0;
++   }
+ 
+    drm->mode         = conn->modes[i];
+    drm->connector_id = conn->connector_id;

@@ -1,0 +1,63 @@
+From: dArkOS RG52 Mini port
+Subject: Reboot and Shutdown in the main menu, no Reset to Default Config
+
+Patch 0003 of v1.22.2 for master, whose settings are tables now: the two
+actions on the odroidgo2 build as on Lakka (their "Show" switches master
+already has there), without Lakka's update check; Reset to Default Config
+left out of the configuration list.
+
+diff --git a/menu/menu_displaylist.c b/menu/menu_displaylist.c
+index c5febc3..c135734 100644
+--- a/menu/menu_displaylist.c
++++ b/menu/menu_displaylist.c
+@@ -13575,12 +13575,14 @@ unsigned menu_displaylist_build_list(
+                      MENU_ENUM_LABEL_SAVE_AS_CONFIG,
+                      MENU_SETTING_ACTION, 0, 0, NULL))
+                count++;
++#if !defined(HAVE_ODROIDGO2)
+             if (menu_entries_append(list,
+                      msg_hash_to_str(MENU_ENUM_LABEL_VALUE_RESET_TO_DEFAULT_CONFIG),
+                      MENU_ENUM_LABEL_RESET_TO_DEFAULT_CONFIG_STR,
+                      MENU_ENUM_LABEL_RESET_TO_DEFAULT_CONFIG,
+                      MENU_SETTING_ACTION, 0, 0, NULL))
+                count++;
++#endif
+             if (!settings->bools.global_core_options && (sys_info->info.library_name && *sys_info->info.library_name)
+                 && menu_entries_append(list,
+                   msg_hash_to_str(MENU_ENUM_LABEL_VALUE_CORE_OPTIONS_RESET),
+@@ -18025,11 +18027,13 @@ static bool menu_displaylist_ctl_internal(
+                      count++;
+ #endif
+ 
+-#if defined(HAVE_LAKKA)
++#if defined(HAVE_LAKKA) || defined(HAVE_ODROIDGO2)
+                if (settings->bools.menu_show_reboot)
+                {
++#ifdef HAVE_LAKKA
+                   /* What the Reboot entry's value shows. */
+                   lakka_update_check();
++#endif
+                   if (MENU_DISPLAYLIST_PARSE_SETTINGS_ENUM(info->list,
+                            MENU_ENUM_LABEL_REBOOT,
+                            PARSE_ACTION, false) == 0)
+diff --git a/settings/settings_def_menu_main_lists_3.h b/settings/settings_def_menu_main_lists_3.h
+index 27a290e..5217e03 100644
+--- a/settings/settings_def_menu_main_lists_3.h
++++ b/settings/settings_def_menu_main_lists_3.h
+@@ -12,14 +12,14 @@ S_ACTION(SWITCH_CPU_PROFILE,
+ #endif
+ /* Descriptor and configuration rows are #if defined(HAVE_LAKKA); the string
+  * tables always carry this row via the strings pass. */
+-#if defined(HAVE_LAKKA) || defined(SETTINGS_DEF_STRINGS_PASS)
++#if defined(HAVE_LAKKA) || defined(HAVE_ODROIDGO2) || defined(SETTINGS_DEF_STRINGS_PASS)
+ S_ACTION_EX_NS(REBOOT,
+       "reboot", SD_FLAG_NONE, NULL, NULL, CMD_EVENT_REBOOT,
+       "Reboot")
+ #endif
+ /* Descriptor and configuration rows are #if defined(HAVE_LAKKA); the string
+  * tables always carry this row via the strings pass. */
+-#if defined(HAVE_LAKKA) || defined(SETTINGS_DEF_STRINGS_PASS)
++#if defined(HAVE_LAKKA) || defined(HAVE_ODROIDGO2) || defined(SETTINGS_DEF_STRINGS_PASS)
+ S_ACTION_EX_NS(SHUTDOWN,
+       "shutdown", SD_FLAG_NONE, NULL, NULL, CMD_EVENT_SHUTDOWN,
+       "Shutdown")

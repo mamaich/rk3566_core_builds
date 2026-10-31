@@ -1,0 +1,24 @@
+(retroarch-patch-0001-rebootshutdown of v1.22.2, as it lands on master.)
+
+diff --git a/retroarch.c b/retroarch.c
+index d0606c0..bc524ac 100644
+--- a/retroarch.c
++++ b/retroarch.c
+@@ -5416,7 +5416,7 @@ bool command_event(enum event_command cmd, void *data)
+             system("nohup /usr/bin/lakka-shutdown.sh 2>&1 >/dev/null & exit");
+ #else
+             command_event(CMD_EVENT_QUIT, NULL);
+-            system("shutdown -P now");
++            system("sudo shutdown -P now");
+ #endif /* HAVE_LAKKA */
+ #endif
+          }
+@@ -5448,7 +5448,7 @@ bool command_event(enum event_command cmd, void *data)
+             system("nohup /usr/bin/lakka-reboot.sh 2>&1 >/dev/null & exit");
+ #else
+             command_event(CMD_EVENT_QUIT, NULL);
+-            system("shutdown -r now");
++            system("sudo shutdown -r now");
+ #endif /* HAVE_LAKKA */
+ #endif
+          }

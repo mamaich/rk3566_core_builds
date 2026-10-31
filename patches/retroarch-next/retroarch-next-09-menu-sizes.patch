@@ -1,0 +1,63 @@
+From: dArkOS RG52 Mini port
+Subject: Menus sized for a 5-inch 720p panel
+
+Patches 0005, 0006 and 0009 of v1.22.2 for master: Ozone at 1.9 times the
+DPI scale, its widgets at 1.5 times, Material UI (GLUI) at 2 times.
+
+diff --git a/gfx/gfx_widgets.c b/gfx/gfx_widgets.c
+index dfd8f2b..4dc2d25 100644
+--- a/gfx/gfx_widgets.c
++++ b/gfx/gfx_widgets.c
+@@ -1333,6 +1333,8 @@ float gfx_widgets_scale_factor(void *data_disp, void *settings_data,
+       scale_factor                  = gfx_display_get_dpi_scale(
+             p_disp,
+             settings, dims, fullscreen, true);
++   if (p_disp->menu_driver_id == MENU_DRIVER_ID_OZONE)
++      scale_factor                  = scale_factor * 1.500f;
+    return scale_factor;
+ }
+ 
+diff --git a/menu/drivers/materialui.c b/menu/drivers/materialui.c
+index 837464d..da14eb1 100644
+--- a/menu/drivers/materialui.c
++++ b/menu/drivers/materialui.c
+@@ -4482,7 +4482,7 @@ static void materialui_render(void *data,
+    /* Check whether screen dimensions, menu scale
+     * factor or layout optimisation settings have changed */
+    scale_factor = gfx_display_get_dpi_scale(p_disp, settings,
+-         dims, false, false);
++         dims, false, false) * 2.000f;
+ 
+    if (   (scale_factor != mui->last_scale_factor)
+        || (dims != mui->last_dims)
+@@ -9795,7 +9795,7 @@ static void *materialui_init(void **userdata, bool video_is_threaded)
+    mui->last_dims                         = out_dims;
+    mui->last_scale_factor                 = gfx_display_get_dpi_scale(
+          p_disp, settings, out_dims,
+-         false, false);
++         false, false) * 2.000f;
+    mui->dip_base_unit_size                = mui->last_scale_factor
+       * MUI_DIP_BASE_UNIT_SIZE;
+    mui->flags                             = 0;
+diff --git a/menu/drivers/ozone.c b/menu/drivers/ozone.c
+index 69dc50d..d66494a 100644
+--- a/menu/drivers/ozone.c
++++ b/menu/drivers/ozone.c
+@@ -10085,7 +10085,7 @@ static void *ozone_init(void **userdata, bool video_is_threaded)
+    ozone->last_framebuffer_opacity              = -1.0f;
+    ozone->last_dims                             = out_dims;
+    ozone->last_scale_factor                     = gfx_display_get_dpi_scale(p_disp,
+-         settings, out_dims, false, false);
++         settings, out_dims, false, false) * 1.9f;
+    ozone->last_thumbnail_scale_factor           = settings->floats.ozone_thumbnail_scale_factor;
+ 
+    ozone->entries_old                           = NULL;
+@@ -11145,7 +11145,7 @@ static void ozone_render(void *data,
+    /* Check whether screen dimensions or menu scale
+     * factor have changed */
+    scale_factor               = gfx_display_get_dpi_scale(p_disp, settings,
+-            dims, false, false);
++            dims, false, false) * 1.9f;
+    thumbnail_scale_factor     = settings->floats.ozone_thumbnail_scale_factor;
+    padding_factor             = settings->floats.ozone_padding_factor;
+    font_scale_factor_global   = (font_scale == 1) ? (settings->floats.ozone_font_scale_factor_global) : 1.0f;

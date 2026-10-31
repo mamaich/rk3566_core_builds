@@ -1,0 +1,24 @@
+(retroarch-patch-0002-ArkOS_Branding of v1.22.2, as it lands on master.)
+
+diff --git a/intl/msg_hash_us.h b/intl/msg_hash_us.h
+index 4a66492..c89f661 100644
+--- a/intl/msg_hash_us.h
++++ b/intl/msg_hash_us.h
+@@ -24,7 +24,7 @@ other than `msg_hash_us.h` will be rejected.
+ 
+ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_MAIN_MENU,
+-   "Main Menu"
++   "ArkOS"
+    )
+ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_SETTINGS_TAB,
+@@ -18677,7 +18677,7 @@ MSG_HASH(MENU_ENUM_LABEL_VALUE_##T, us)
+ #undef SETTINGS_DEF_STRINGS_PASS
+ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_MENU_ADD_CONTENT_ENTRY_DISPLAY_MAIN_TAB,
+-   "Main Menu"
++   "ArkOS"
+    )
+ MSG_HASH(
+    MENU_ENUM_LABEL_VALUE_MENU_ADD_CONTENT_ENTRY_DISPLAY_PLAYLISTS_TAB,

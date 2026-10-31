@@ -1,0 +1,54 @@
+From: dArkOS RG52 Mini port
+Subject: Network commands on 127.0.0.1 by default; a load does not ask the state's size
+
+Patches 0023 and 0024 of v1.22.2 for master. Master can bind network
+commands to an address (network_cmd_bind_address), empty by default, which
+is every interface; it is 127.0.0.1 here, so Quick Mode's local QUIT works
+and nothing reaches the port from the network. Loading a state no longer
+makes the core serialize one first to learn its size (Azahar: 1.4 s).
+Patches 0021 and 0022 are in master already.
+
+diff --git a/command.c b/command.c
+index 24c627d..d9a4800 100644
+--- a/command.c
++++ b/command.c
+@@ -7367,12 +7367,17 @@ bool command_event_main_state(unsigned cmd)
+ 
+    if (savestates_enabled)
+    {
+-      size_t info_size;
+       runloop_get_current_savestate_path(state_path,
+             sizeof(state_path));
+ 
+-      info_size          = core_serialize_size();
+-      savestates_enabled = (info_size > 0);
++      /* dArkOS: only saves ask the core for the state's size first. For a
++       * load the answer was thrown away, and a core whose size is that of
++       * a fresh state (Azahar: 292 MB serialized and compressed, 1.4 s on
++       * an RG52 Mini) made one for nothing; a core that cannot load says so
++       * from retro_unserialize. */
++      if (     cmd != CMD_EVENT_LOAD_STATE
++            && cmd != CMD_EVENT_LOAD_STATE_FROM_RAM)
++         savestates_enabled = (core_serialize_size() > 0);
+    }
+ 
+   /* TODO: Load state should act in one of three ways:
+diff --git a/configuration.c b/configuration.c
+index 08dc2fd..220251e 100644
+--- a/configuration.c
++++ b/configuration.c
+@@ -6192,8 +6192,12 @@ void config_set_defaults(settings_t *target)
+       configuration_set_string(settings,
+             settings->arrays.netplay_mitm_server,
+             def_mitm);
+-   /* Empty: bind on every interface, as before the setting existed. */
+-   *settings->arrays.network_cmd_bind_address = '\0';
++   /* dArkOS: 127.0.0.1, not every interface. Quick Mode closes RetroArch
++    * with `retroarch --command QUIT`, a local sender; from the network
++    * nobody should send LOAD_CORE or WRITE_CORE_RAM to a process of ark,
++    * who has sudo. Empty in the config: every interface again. */
++   strlcpy(settings->arrays.network_cmd_bind_address, "127.0.0.1",
++         sizeof(settings->arrays.network_cmd_bind_address));
+    strlcpy(settings->arrays.mcp_server_bind_address, "127.0.0.1",
+          sizeof(settings->arrays.mcp_server_bind_address));
+    *settings->arrays.mcp_server_token = '\0';

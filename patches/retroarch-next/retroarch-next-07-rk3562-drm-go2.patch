@@ -1,0 +1,158 @@
+From: dArkOS RG52 Mini port
+Subject: drm_go2 context on the RK3562 RG52 Mini: panel, colours, HDMI
+
+Master rewrote this context (no libgo2: its own dumb buffers, the RGA blit
+straight into them), for the Odroid Go Advance. What patches 0000, 0020 and
+0025 did on v1.22.2's, done again on it:
+- the RG52 Mini's portrait panel is mounted the other way round from the
+  OGA's: the frame is turned by ROT_90, not ROT_270;
+- 32-bit XRGB8888 scanout buffers, read by the RGA in the GL surface's own
+  format: a copy with no conversion, so red and blue cannot swap on this
+  RGA, and no RGB565 banding;
+- the connector /var/run/drmConn names (the HDMI hotplug script writes it,
+  as for SDL), else the first connected one;
+- a landscape output (HDMI) is driven as it is, without a turn, where
+  master refused it.
+
+diff --git a/gfx/drivers_context/drm_go2_ctx.c b/gfx/drivers_context/drm_go2_ctx.c
+index 6fe6069..2dfd4e9 100644
+--- a/gfx/drivers_context/drm_go2_ctx.c
++++ b/gfx/drivers_context/drm_go2_ctx.c
+@@ -34,6 +34,7 @@
+  * per frame. */
+ 
+ #include <stdint.h>
++#include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <errno.h>
+@@ -126,6 +127,7 @@ typedef struct gfx_ctx_go2_drm_data
+    uint32_t connector_id;
+    uint32_t crtc_id;
+    int scan_wstride;    /* scanout row, in pixels */
++   bool rotated;        /* RK3562: the output is the portrait panel */
+    int src_rk_format;   /* RGA format of the GBM surface */
+    /* Packed (VIDEO_SCALE_PACK) sizes: the landscape picture the panel
+     * shows, and the frame GL draws into it. */
+@@ -223,7 +225,30 @@ static bool go2_find_output(gfx_ctx_go2_drm_data_t *drm)
+    if (!res)
+       return false;
+ 
+-   for (i = 0; i < res->count_connectors; i++)
++   /* RK3562: /var/run/drmConn holds the index of the connector to use
++    * (the HDMI hotplug script writes it, as for SDL and libgo2 before);
++    * when it is absent or not connected, the first connected one. */
++   {
++      FILE *f   = fopen("/var/run/drmConn", "r");
++      int  want = -1;
++      if (f)
++      {
++         if (fscanf(f, "%i", &want) != 1)
++            want = -1;
++         fclose(f);
++      }
++      if (want >= 0 && want < res->count_connectors)
++      {
++         conn = drmModeGetConnector(drm->fd, res->connectors[want]);
++         if (conn && conn->connection != DRM_MODE_CONNECTED)
++         {
++            drmModeFreeConnector(conn);
++            conn = NULL;
++         }
++      }
++   }
++
++   for (i = 0; !conn && i < res->count_connectors; i++)
+    {
+       conn = drmModeGetConnector(drm->fd, res->connectors[i]);
+       if (conn && conn->connection == DRM_MODE_CONNECTED)
+@@ -298,16 +323,16 @@ static bool go2_scanout_init(gfx_ctx_go2_drm_data_t *drm)
+       memset(&c, 0, sizeof(c));
+       c.width  = w;
+       c.height = h;
+-      c.bpp    = 16; /* DRM_FORMAT_RGB565 */
++      c.bpp    = 32; /* RK3562: DRM_FORMAT_XRGB8888 */
+       if (drmIoctl(drm->fd, DRM_IOCTL_MODE_CREATE_DUMB, &c) < 0)
+          return false;
+       s->handle         = c.handle;
+-      drm->scan_wstride = c.pitch / 2;
++      drm->scan_wstride = c.pitch / 4;
+ 
+       handles[0] = c.handle; handles[1] = handles[2] = handles[3] = 0;
+       pitches[0] = c.pitch;  pitches[1] = pitches[2] = pitches[3] = 0;
+       offsets[0] = offsets[1] = offsets[2] = offsets[3] = 0;
+-      if (drmModeAddFB2(drm->fd, w, h, DRM_FORMAT_RGB565,
++      if (drmModeAddFB2(drm->fd, w, h, DRM_FORMAT_XRGB8888,
+                handles, pitches, offsets, &s->fb_id, 0))
+          return false;
+       if (drmPrimeHandleToFD(drm->fd, c.handle,
+@@ -418,18 +443,19 @@ static void *gfx_ctx_go2_drm_init(void *video_driver)
+       return NULL;
+    }
+ 
+-   /* The panel is portrait; the picture on it is landscape. */
+-   if (     !go2_find_output(drm)
+-         /* This driver should only be used on rotated screens */
+-         || drm->mode.vdisplay < drm->mode.hdisplay)
++   if (!go2_find_output(drm))
+    {
+       close(drm->fd);
+       free(drm);
+       return NULL;
+    }
+ 
+-   drm->native_dims = VIDEO_SCALE_PACK(drm->mode.vdisplay,
+-         drm->mode.hdisplay);
++   /* RK3562: the panel is portrait and the picture on it landscape; any
++    * landscape output (HDMI) is driven as it is, without a turn. */
++   drm->rotated     = drm->mode.vdisplay > drm->mode.hdisplay;
++   drm->native_dims = drm->rotated
++      ? VIDEO_SCALE_PACK(drm->mode.vdisplay, drm->mode.hdisplay)
++      : VIDEO_SCALE_PACK(drm->mode.hdisplay, drm->mode.vdisplay);
+    drm->fb_dims     = drm->native_dims;
+    drm->orig_crtc   = drmModeGetCrtc(drm->fd, drm->crtc_id);
+ 
+@@ -752,7 +778,7 @@ static void gfx_ctx_go2_drm_swap_buffers(void *data)
+    dst.mmuFlag      = 1;
+    dst.rect.wstride = drm->scan_wstride;
+    dst.rect.hstride = drm->mode.vdisplay;
+-   dst.rect.format  = RK_FORMAT_RGB_565;
++   dst.rect.format  = drm->src_rk_format;
+ 
+    /* Only the borders beside the picture need black, and only once per
+     * buffer after the picture moves: the blit covers the rest. */
+@@ -768,16 +794,28 @@ static void gfx_ctx_go2_drm_swap_buffers(void *data)
+       s->clear_gen = drm->rect_gen;
+    }
+ 
+-   /* Landscape -> portrait: the picture's x runs down the panel. */
+-   dst.rect.xoffset = 0;
+-   dst.rect.yoffset = out_x;
+-   dst.rect.width   = nat_h;
+-   dst.rect.height  = out_w;
++   if (drm->rotated)
++   {
++      /* Landscape -> portrait: the picture's x runs along the panel. */
++      dst.rect.xoffset = 0;
++      dst.rect.yoffset = out_x;
++      dst.rect.width   = nat_h;
++      dst.rect.height  = out_w;
++   }
++   else
++   {
++      dst.rect.xoffset = out_x;
++      dst.rect.yoffset = 0;
++      dst.rect.width   = out_w;
++      dst.rect.height  = nat_h;
++   }
+ 
+    memset(&src, 0, sizeof(src));
+    src.fd           = src_fd;
+    src.mmuFlag      = 1;
+-   src.rotation     = HAL_TRANSFORM_ROT_270;
++   /* RK3562 RG52 Mini: its panel is mounted the other way round from
++    * the Odroid Go Advance's. */
++   src.rotation     = drm->rotated ? HAL_TRANSFORM_ROT_90 : 0;
+    src.scale_mode   = GO2_RGA_SCALE_MODE;
+    src.rect.xoffset = 0;
+    src.rect.yoffset = drm->ctx_h - src_h;
