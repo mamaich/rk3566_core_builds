@@ -11,9 +11,10 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-# master of 2026-10-31, after 2609a (2026-10-08), by its full id: on the console
-# the ND Demo within the spread of 2609a's, savestates the same version (192)
-TAG="c4856ead6420cceb48744815d79d6be59febb5ff"
+# master of 2026-11-02 (e8c4246, 16 commits after c4856ead of 2026-10-31), by its
+# full id: on the console the ND Demo 49.1 fps against 49.5 for c4856ead, three
+# rounds each, within the spread; c4856ead was within 2609a's spread too
+TAG="e8c42467964da77011f7da93a06f9e0a72ca868f"
 	# dolphin Standalone build
 	if [[ "$var" == "dolphinsa" ]] && [[ "$bitness" == "64" ]]; then
 	 cd $cur_wd
