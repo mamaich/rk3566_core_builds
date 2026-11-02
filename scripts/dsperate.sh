@@ -16,7 +16,10 @@ bitness="$(getconf LONG_BIT)"
 # (2026-10-31) was tried on the dual-boot card: the ARM9 IPC FIFO delivered at
 # send time, the lean rasterizer's attributes as the DS has them, the frontend no
 # longer realtime, scanout buffers off CMA where the display has an IOMMU.
-commit="f608b4c54e60d2d9f022a7c7a6092c415ea49597"
+# v3.2.0 (f8a575f, 2026-11-02): refreshed PGO profiles, 3D fixes (W-buffered depth
+# in the GLES raster, the span walk before the submit for capture frames), the
+# enhanced anti-aliasing mode by default, builds with GCC 8.
+commit="f8a575f2672b0f41f6f741e36339480ca52dcf90"
 
 	# DSperate Standalone build
 	if [[ "$var" == "dsperate" ]]  && [[ "$bitness" == "64" ]]; then
