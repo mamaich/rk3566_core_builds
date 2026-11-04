@@ -19,7 +19,9 @@ bitness="$(getconf LONG_BIT)"
 # v3.2.0 (f8a575f, 2026-11-02): refreshed PGO profiles, 3D fixes (W-buffered depth
 # in the GLES raster, the span walk before the submit for capture frames), the
 # enhanced anti-aliasing mode by default, builds with GCC 8.
-commit="f8a575f2672b0f41f6f741e36339480ca52dcf90"
+# v3.3.0 (99618eb, 2026-11-04): PGO profiles refreshed, the Vulkan pipeline cache kept
+# between runs, 4x MSAA for video.aa on the GPU raster, DS_MSAA_SHARP.
+commit="99618eb956c66083618395dbae9bb5cbf0241d16"
 
 	# DSperate Standalone build
 	if [[ "$var" == "dsperate" ]]  && [[ "$bitness" == "64" ]]; then

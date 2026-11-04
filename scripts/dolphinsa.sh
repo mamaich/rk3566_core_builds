@@ -14,7 +14,8 @@ bitness="$(getconf LONG_BIT)"
 # master of 2026-11-02 (e8c4246, 16 commits after c4856ead of 2026-10-31), by its
 # full id: on the console the ND Demo 49.1 fps against 49.5 for c4856ead, three
 # rounds each, within the spread; c4856ead was within 2609a's spread too
-TAG="e8c42467964da77011f7da93a06f9e0a72ca868f"
+# master of 2026-11-04 (584366c, 10 commits after e8c4246)
+TAG="584366cb6859f5e371b1314bf0d92bb59d4d1b80"
 	# dolphin Standalone build
 	if [[ "$var" == "dolphinsa" ]] && [[ "$bitness" == "64" ]]; then
 	 cd $cur_wd

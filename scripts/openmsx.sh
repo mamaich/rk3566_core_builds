@@ -11,7 +11,7 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-TAG="RELEASE_19_1"
+TAG="RELEASE_22_0"
 
 	# openmsx Standalone build
 	if [[ "$var" == "openmsx" ]] && [[ "$bitness" == "64" ]]; then

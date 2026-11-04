@@ -27,7 +27,7 @@ bitness="$(getconf LONG_BIT)"
 	  fi
 
 	 cd openbor/
-	 git checkout 7f6f17507078848be625e6d1c1b4f41823151387
+	 git checkout 5c8261444de6b61f8e2ce6e79e3d86a2949e55bd
 
 	 openbor_patches=$(find *.patch)
 	 
