@@ -15,7 +15,9 @@ bitness="$(getconf LONG_BIT)"
 # full id: on the console the ND Demo 49.1 fps against 49.5 for c4856ead, three
 # rounds each, within the spread; c4856ead was within 2609a's spread too
 # master of 2026-11-04 (584366c, 10 commits after e8c4246)
-TAG="584366cb6859f5e371b1314bf0d92bb59d4d1b80"
+# master of 2026-11-06 (4a70679, 11 commits after 584366c): bounds on FIFO memory updates
+# and on legacy savestate LZO decompression, a monotonic clock for sockets
+TAG="4a70679d0adcd17220568f5c18d2d4005eeea0a2"
 	# dolphin Standalone build
 	if [[ "$var" == "dolphinsa" ]] && [[ "$bitness" == "64" ]]; then
 	 cd $cur_wd

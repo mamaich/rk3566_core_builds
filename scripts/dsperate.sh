@@ -21,7 +21,10 @@ bitness="$(getconf LONG_BIT)"
 # enhanced anti-aliasing mode by default, builds with GCC 8.
 # v3.3.0 (99618eb, 2026-11-04): PGO profiles refreshed, the Vulkan pipeline cache kept
 # between runs, 4x MSAA for video.aa on the GPU raster, DS_MSAA_SHARP.
-commit="99618eb956c66083618395dbae9bb5cbf0241d16"
+# main a165843 (2026-11-07), 8 commits after v3.3.0: a menu language setting and gettext
+# catalogs, menu glyphs for Cyrillic/CJK from the built-in DSi fonts, a firmware.bin of no real
+# size refused (touch calibration no longer collapses to 0,0), dma-buf pitch padded to 64 bytes.
+commit="a16584306c23ba733439f2685f1e70213653a425"
 
 	# DSperate Standalone build
 	if [[ "$var" == "dsperate" ]]  && [[ "$bitness" == "64" ]]; then

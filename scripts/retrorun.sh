@@ -11,7 +11,9 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-commit="0784f2135d2ac011fa40658941c9cc1ebcf65dbc" # Release 3.2.4 and two after it
+# 3.2.5 and one after (4eeeedd, 2026-11-05): OSD themes, native GO2 CRT/scanline/aspect fixes,
+# faster software scanline uploads, Flycast LE profiles, SDL controls and loading screen fixed
+commit="4eeeeddcbecdffcee20f16be2fa26bd8eb72cada"
 
 	# Retrorun build
 	if [[ "$var" == "retrorun" ]]; then
