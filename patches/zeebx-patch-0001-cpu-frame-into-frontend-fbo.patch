@@ -1,0 +1,205 @@
+--- a/frontends/libretro/src/lib.rs	2026-11-07 23:13:17.839241087 +0300
++++ b/frontends/libretro/src/lib.rs	2026-11-07 23:13:17.891609652 +0300
+@@ -695,6 +695,9 @@
+     bitmasks: bool,
+     /// Se o frontend aceita quadro nulo quando a tela não mudou.
+     aceita_dupe: bool,
++    /// A textura e o framebuffer por onde o quadro do processador chega ao framebuffer do
++    /// frontend no caminho de placa. Ver [`apresenta_pela_ponte`].
++    ponte_da_tela: Option<PonteDaTela>,
+     /// Quantos quadros de placa o jogo tinha desenhado no quadro anterior. O contador do motor é
+     /// acumulado, e a placa pode ter desenhado uma vez na abertura e nunca mais: o que decide é a
+     /// diferença entre este quadro e o anterior. Ver o comentário no bloco que monta o quadro.
+@@ -930,6 +933,147 @@
+     Some((pedido.data.cast::<u8>(), pedido.pitch))
+ }
+ 
++/// O quadro do processador dentro da placa: uma textura RGB565 do tamanho da tela, presa a um
++/// framebuffer de leitura, de onde um blit a leva ao framebuffer do frontend.
++struct PonteDaTela {
++    /// A placa em que os objetos nasceram ([`zeebx::video::gpu::endereco_da_placa`]). Numa placa
++    /// nova eles não valem e não se apagam: a `libretro.h` manda só recriar.
++    placa: usize,
++    textura: glow::Texture,
++    fbo: glow::Framebuffer,
++    medida: (i32, i32),
++}
++
++/// O framebuffer em que o frontend quer o quadro de agora.
++fn framebuffer_do_frontend() -> Option<u32> {
++    let pega = OFERTA_DE_PLACA
++        .lock()
++        .ok()
++        .and_then(|oferta| oferta.as_ref().and_then(|o| o.get_current_framebuffer))?;
++    Some(unsafe { pega() })
++}
++
++/// Põe o quadro do processador no framebuffer do frontend, para ele sair como quadro de placa.
++///
++/// **Com render em hardware, o driver `gl` do RetroArch não lê pixels do processador.** O
++/// `gl2_frame` só copia o quadro entregue quando *não* há framebuffer de placa
++/// (`GL2_FLAG_HW_RENDER_FBO_INIT`); com ele, apresenta o FBO e ignora o ponteiro — e a
++/// `libretro.h` também só prevê, com render em hardware, o sentinela ou o quadro nulo. Um quadro em
++/// que a placa não desenhou — o 2D por `IDisplay`/`IBitmap`, como a abertura do Action Hero 3D —
++/// saía preto, com o som normal, no RetroArch sobre GLES (RG52 Mini, Mali-G52). Aqui o quadro sobe
++/// numa textura RGB565 e um blit o põe no framebuffer do frontend; quem chama entrega o sentinela.
++///
++/// A origem é a de cima, como no desenho da placa (`bottom_left_origin` falso): a linha 0 do
++/// quadro vai para a linha 0 do framebuffer. Devolve se o quadro foi posto; sem framebuffer do
++/// frontend ou com pixels a menos, nada muda e quem chama entrega os pixels como antes.
++fn apresenta_pela_ponte(
++    gl: &glow::Context,
++    ponte: &mut Option<PonteDaTela>,
++    largura: u32,
++    altura: u32,
++    rgb565: &[u8],
++) -> bool {
++    let (w, h) = (largura as i32, altura as i32);
++    if w <= 0 || h <= 0 || rgb565.len() < largura as usize * altura as usize * 2 {
++        return false;
++    }
++    let Some(fbo) = framebuffer_do_frontend() else {
++        return false;
++    };
++    let destino = std::num::NonZeroU32::new(fbo).map(glow::NativeFramebuffer);
++    let endereco = zeebx::video::gpu::endereco_da_placa(gl);
++    unsafe {
++        if ponte.as_ref().is_some_and(|p| p.placa != endereco) {
++            *ponte = None;
++        }
++        if let Some(velha) = ponte.take_if(|p| p.medida != (w, h)) {
++            gl.delete_framebuffer(velha.fbo);
++            gl.delete_texture(velha.textura);
++        }
++        // O estado de leitura de pixels é de quem passou antes — o frontend ou o motor.
++        gl.bind_buffer(glow::PIXEL_UNPACK_BUFFER, None);
++        gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 2);
++        gl.pixel_store_i32(glow::UNPACK_ROW_LENGTH, 0);
++        gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
++        gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
++        gl.active_texture(glow::TEXTURE0);
++        let pixels = glow::PixelUnpackData::Slice(Some(&rgb565[..largura as usize * altura as usize * 2]));
++        match ponte.as_ref() {
++            Some(p) => {
++                gl.bind_texture(glow::TEXTURE_2D, Some(p.textura));
++                gl.tex_sub_image_2d(
++                    glow::TEXTURE_2D,
++                    0,
++                    0,
++                    0,
++                    w,
++                    h,
++                    glow::RGB,
++                    glow::UNSIGNED_SHORT_5_6_5,
++                    pixels,
++                );
++            }
++            None => {
++                let Ok(textura) = gl.create_texture() else {
++                    return false;
++                };
++                gl.bind_texture(glow::TEXTURE_2D, Some(textura));
++                gl.tex_image_2d(
++                    glow::TEXTURE_2D,
++                    0,
++                    glow::RGB565 as i32,
++                    w,
++                    h,
++                    0,
++                    glow::RGB,
++                    glow::UNSIGNED_SHORT_5_6_5,
++                    pixels,
++                );
++                for (nome, valor) in [
++                    (glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32),
++                    (glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32),
++                    (glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32),
++                    (glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32),
++                    (glow::TEXTURE_MAX_LEVEL, 0),
++                ] {
++                    gl.tex_parameter_i32(glow::TEXTURE_2D, nome, valor);
++                }
++                let Ok(leitura) = gl.create_framebuffer() else {
++                    gl.bind_texture(glow::TEXTURE_2D, None);
++                    gl.delete_texture(textura);
++                    return false;
++                };
++                gl.bind_framebuffer(glow::READ_FRAMEBUFFER, Some(leitura));
++                gl.framebuffer_texture_2d(
++                    glow::READ_FRAMEBUFFER,
++                    glow::COLOR_ATTACHMENT0,
++                    glow::TEXTURE_2D,
++                    Some(textura),
++                    0,
++                );
++                *ponte = Some(PonteDaTela {
++                    placa: endereco,
++                    textura,
++                    fbo: leitura,
++                    medida: (w, h),
++                });
++            }
++        }
++        gl.bind_texture(glow::TEXTURE_2D, None);
++        gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 4);
++        let Some(p) = ponte.as_ref() else {
++            return false;
++        };
++        // O blit passa pela tesoura e por nada mais do fragmento; o motor a liga no 3D.
++        gl.disable(glow::SCISSOR_TEST);
++        gl.bind_framebuffer(glow::READ_FRAMEBUFFER, Some(p.fbo));
++        gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, destino);
++        gl.blit_framebuffer(0, 0, w, h, 0, 0, w, h, glow::COLOR_BUFFER_BIT, glow::NEAREST);
++        gl.bind_framebuffer(glow::FRAMEBUFFER, destino);
++    }
++    true
++}
++
+ /// Escreve o quadro no buffer que o frontend emprestou, respeitando o passo de linha dele.
+ ///
+ /// # Safety
+@@ -2656,6 +2800,7 @@
+         aberto_pela_z_wheel: false,
+         bitmasks: false,
+         aceita_dupe: false,
++        ponte_da_tela: None,
+         gl_quadros_antes: 0,
+         ultima_assinatura: None,
+         ultimo_relogio_ms: 0,
+@@ -3012,7 +3157,11 @@
+         // No caminho de placa o frontend apresenta o FBO que recebeu no callback e ignora o
+         // ponteiro de pixels. Não copie 600 KiB nem calcule assinatura CPU nesse caso: além de
+         // inútil, isso competia com o Mali pela mesma CPU fraca que queremos deixar para o guest.
+-        let na_placa = placa().is_some() && desenhou_na_placa;
++        let placa_agora = placa();
++        let na_placa = placa_agora.is_some() && desenhou_na_placa;
++        // **Com a placa ligada, o quadro do processador também sai pela placa.** O driver `gl` do
++        // RetroArch ignora pixels quando há render em hardware; ver [`apresenta_pela_ponte`].
++        let pela_ponte = placa_agora.is_some() && !na_placa;
+         // O console é 640×480, e é esse o quadro que o shader espera receber. Um tamanho
+         // diferente é avisado uma vez, em vez de aparecer como imagem torta sem explicação.
+         if !estado.avisou_tamanho && (largura != 640 || altura != 480) {
+@@ -3027,7 +3176,7 @@
+         // aceita, entregaremos os mesmos bytes de novo — nos dois casos a imagem é realmente 30.
+         // **O buffer emprestado, quando o frontend o oferece.** Só no caminho de software: com o
+         // desenho na placa quem apresenta é o FBO, e não há quadro na CPU para escrever.
+-        let emprestado = match na_placa {
++        let emprestado = match na_placa || pela_ponte {
+             true => None,
+             false => pede_o_buffer_do_frontend(largura, altura),
+         };
+@@ -3052,6 +3201,14 @@
+             estado.ultima_assinatura = Some(assinatura);
+             igual
+         };
++        // Um quadro novo do processador vai ao framebuffer do frontend, e então o que se entrega
++        // é o sentinela; o repetido continua nulo, e o frontend mostra de novo o que está lá.
++        let na_placa = na_placa
++            || (pela_ponte
++                && !duplicado
++                && placa_agora.as_deref().is_some_and(|gl| {
++                    apresenta_pela_ponte(gl, &mut estado.ponte_da_tela, largura, altura, &quadro)
++                }));
+         // Áudio: **o tempo vem do relógio virtual**, não de um número fixo. Um jogo que passa dois
+         // quadros virtuais entre duas chamadas precisa entregar o dobro de amostras, senão o som
+         // atrasa em relação à imagem e o frontend engasga ao tentar acompanhar.
