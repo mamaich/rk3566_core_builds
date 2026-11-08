@@ -1,0 +1,141 @@
+diff -ru a/src/machine/bitmap.rs b/src/machine/bitmap.rs
+--- a/src/machine/bitmap.rs	2026-11-08 03:59:59.256910850 +0300
++++ b/src/machine/bitmap.rs	2026-11-08 03:59:59.310213630 +0300
+@@ -490,10 +490,29 @@
+         let (meio_w, meio_h) = (t.largura as f32 / 2.0, t.altura as f32 / 2.0);
+         // Copiar o retângulo de origem primeiro deixa ler e escrever quando os dois são o mesmo
+         // mapa de superfícies — e quando origem e destino são o mesmo bitmap.
+-        let mut pixels = Vec::with_capacity((t.largura * t.altura) as usize);
+-        for linha in 0..t.altura {
+-            for coluna in 0..t.largura {
+-                pixels.push(fonte.get_pixel(t.x_origem + coluna, t.y_origem + linha));
++        //
++        // **Linha a linha, e não pixel a pixel.** No A53 do RG52 Mini este método era um quinto do
++        // tempo do core no Action Hero 3D (perf, 2026-11-08): um `get_pixel` com os limites
++        // conferidos por pixel na cópia e um `set_pixel_native` por pixel no desenho. O que fica
++        // fora da origem continua zero, como o `get_pixel` devolvia, e o desenho escreve os
++        // mesmos pixels: a conta por pixel é a mesma, só a escrita é direta.
++        let (largura, altura) = (t.largura as usize, t.altura as usize);
++        let mut pixels = vec![0u16; largura * altura];
++        let (fw, fh) = (i64::from(fonte.width()), i64::from(fonte.height()));
++        let xo = i64::from(t.x_origem);
++        let c0 = (-xo).clamp(0, largura as i64);
++        let c1 = (fw - xo).clamp(0, largura as i64);
++        if c0 < c1 {
++            let origem = fonte.pixels();
++            let n = (c1 - c0) as usize;
++            for linha in 0..altura {
++                let sy = i64::from(t.y_origem) + linha as i64;
++                if sy < 0 || sy >= fh {
++                    continue;
++                }
++                let de = (sy * fw + xo + c0) as usize;
++                let para = linha * largura + c0 as usize;
++                pixels[para..para + n].copy_from_slice(&origem[de..de + n]);
+             }
+         }
+         let Some(alvo) = self.bitmaps.get_mut(&t.destino) else {
+@@ -512,17 +531,33 @@
+         }
+         let limite_x = alvo.width() as i32;
+         let limite_y = alvo.height() as i32;
+-        for py in (y0.floor() as i32).max(0)..(y1.ceil() as i32).min(limite_y) {
+-            for px in (x0.floor() as i32).max(0)..(x1.ceil() as i32).min(limite_x) {
+-                let (u, v) = (px as f32 + 0.5 - centro_x, py as f32 + 0.5 - centro_y);
+-                let sx = (inversa[0] * u + inversa[1] * v + meio_w).floor() as i32;
+-                let sy = (inversa[2] * u + inversa[3] * v + meio_h).floor() as i32;
+-                if sx < 0 || sy < 0 || sx >= t.largura || sy >= t.altura {
+-                    continue;
++        let largura_alvo = alvo.width() as usize;
++        // O que o `set_pixel_native` contava por pixel: quantos e a caixa deles.
++        let mut escritos = 0u64;
++        let (mut cx0, mut cy0, mut cx1, mut cy1) = (u32::MAX, u32::MAX, 0u32, 0u32);
++        {
++            let destino = alvo.pixels_mut();
++            for py in (y0.floor() as i32).max(0)..(y1.ceil() as i32).min(limite_y) {
++                let base = py as usize * largura_alvo;
++                for px in (x0.floor() as i32).max(0)..(x1.ceil() as i32).min(limite_x) {
++                    let (u, v) = (px as f32 + 0.5 - centro_x, py as f32 + 0.5 - centro_y);
++                    let sx = (inversa[0] * u + inversa[1] * v + meio_w).floor() as i32;
++                    let sy = (inversa[2] * u + inversa[3] * v + meio_h).floor() as i32;
++                    if sx < 0 || sy < 0 || sx >= t.largura || sy >= t.altura {
++                        continue;
++                    }
++                    destino[base + px as usize] = pixels[(sy * t.largura + sx) as usize];
++                    escritos += 1;
++                    cx0 = cx0.min(px as u32);
++                    cx1 = cx1.max(px as u32 + 1);
++                    cy0 = cy0.min(py as u32);
++                    cy1 = cy1.max(py as u32 + 1);
+                 }
+-                alvo.set_pixel_native(px, py, pixels[(sy * t.largura + sx) as usize]);
+             }
+         }
++        if escritos > 0 {
++            alvo.marca_escritos(escritos, cx0, cy0, cx1, cy1);
++        }
+         SUCCESS
+     }
+ 
+diff -ru a/src/machine/media.rs b/src/machine/media.rs
+--- a/src/machine/media.rs	2026-11-08 03:59:59.265111277 +0300
++++ b/src/machine/media.rs	2026-11-08 03:59:59.310213630 +0300
+@@ -1227,6 +1227,15 @@
+     /// Enfileira o aviso de fim dos sons que já terminaram.
+     pub(super) fn poll_media(&mut self) -> Result<(), CpuError> {
+         let now = self.now_us();
++        // **Não a cada fronteira de API.** Este método roda em toda volta e em todo callback, e
++        // percorrer todos os `IMedia` vivos a cada vez era 8% do tempo do core no Action Hero 3D
++        // (dezenas de sons, A53 do RG52 Mini, perf 2026-11-08). A lista é olhada quando o relógio
++        // do jogo andou meio milissegundo desde a última olhada: um fim de som chega no máximo
++        // isso depois. Um relógio que voltou (save state) olha na hora.
++        if now >= self.media_olhada_us && now < self.media_olhada_us.saturating_add(500) {
++            return Ok(());
++        }
++        self.media_olhada_us = now;
+         let finished: Vec<u32> = self
+             .media
+             .iter()
+diff -ru a/src/machine/mod.rs b/src/machine/mod.rs
+--- a/src/machine/mod.rs	2026-11-08 03:59:59.269211491 +0300
++++ b/src/machine/mod.rs	2026-11-08 03:59:59.310213630 +0300
+@@ -2705,6 +2705,8 @@
+     egl_context: u32,
+     /// Estado de reprodução de cada `IMedia` vivo.
+     media: HashMap<u32, MediaState>,
++    /// O relógio (µs) da última vez que [`Machine::poll_media`] percorreu `media`.
++    media_olhada_us: u64,
+     /// Os sons entregues aos `IMedia`, já lidos, pela chave do conteúdo. Ver
+     /// [`CargaDeMidia`].
+     cargas_de_midia: HashMap<u64, CargaDeMidia>,
+@@ -3282,6 +3284,7 @@
+             egl_surface: 0,
+             egl_context: 0,
+             media: HashMap::new(),
++            media_olhada_us: 0,
+             cargas_de_midia: HashMap::new(),
+             audio: None,
+             gl_last_frame_words: Vec::new(),
+diff -ru a/src/video/display.rs b/src/video/display.rs
+--- a/src/video/display.rs	2026-11-08 03:59:59.252810636 +0300
++++ b/src/video/display.rs	2026-11-08 03:59:59.306113416 +0300
+@@ -124,6 +124,19 @@
+         &self.pixels
+     }
+ 
++    /// Os pixels para escrita direta, por quem já conferiu os limites. Quem escreve por aqui conta
++    /// o que escreveu com [`Framebuffer::marca_escritos`].
++    pub fn pixels_mut(&mut self) -> &mut [u16] {
++        &mut self.pixels
++    }
++
++    /// O que [`Framebuffer::set_pixel_native`] faz a cada pixel, feito uma vez para `escritos`
++    /// pixels, todos dentro de `[x0, y0, x1, y1)`.
++    pub fn marca_escritos(&mut self, escritos: u64, x0: u32, y0: u32, x1: u32, y1: u32) {
++        self.touched += escritos;
++        self.suja(x0, y0, x1, y1);
++    }
++
+     /// Repõe os pixels e o que a superfície já viveu.
+     ///
+     /// É o caminho da volta de um save state: os pixels vêm do arquivo, e `touched` e `serie`
