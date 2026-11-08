@@ -24,7 +24,12 @@ bitness="$(getconf LONG_BIT)"
 # main a165843 (2026-11-07), 8 commits after v3.3.0: a menu language setting and gettext
 # catalogs, menu glyphs for Cyrillic/CJK from the built-in DSi fonts, a firmware.bin of no real
 # size refused (touch calibration no longer collapses to 0,0), dma-buf pitch padded to 64 bytes.
-commit="a16584306c23ba733439f2685f1e70213653a425"
+# main ff08a3c (2026-11-08), v3.4.0 (aabc4b0) and 6 commits after it: PGO profiles refreshed,
+# incremental VRAMCNT remap, bilinear/seam blend/chunky on the GPU presenters, colour correction
+# (video.colour nds/nds_lite) on the Vulkan present's thread; then the ARM9 stopped in system
+# sleep, a paused game's emulation thread out of the real-time class, SIGINT and SIGTERM to one
+# waiting thread, rcheevos reset with the power-off reboot, Release by default, zh_CN.
+commit="ff08a3c151bced7ded3e0bb3950265446b789e91"
 
 	# DSperate Standalone build
 	if [[ "$var" == "dsperate" ]]  && [[ "$bitness" == "64" ]]; then
