@@ -11,6 +11,10 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
+# dArkOS RG52 Mini: pinned to the commit tested on the console. Since 684926fe20 (2026-10-13) its
+# built-in "Opera Boot" BIOS is the default: a 3DO game starts with no BIOS file, where the older
+# build the image downloaded stayed on a black screen.
+commit="595fd1db7d5bf0d3ca63d2292854d587ddcfa94b"
 
 	# Libretro opera build
 	if [[ "$var" == "opera" || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then
@@ -22,6 +26,7 @@ bitness="$(getconf LONG_BIT)"
 		  echo "There was an error while cloning the libretro git.  Is Internet active or did the git location change?  Stopping here."
 		  exit 1
 		 fi
+		git -C opera-libretro checkout -q $commit || exit 1
 		cp patches/opera-patch* opera-libretro/.
 	  fi
 
