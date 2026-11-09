@@ -1,0 +1,37 @@
+From: dArkOS RG52 Mini port
+Subject: OpenGL keeps the GPU work on the emulation thread
+
+azahar-nano's async GPU worker (mode 3 by default on Mali) runs the
+rasterizer on its own thread. Vulkan can be driven from any thread; an OpenGL
+context, RetroArch's gl driver here, is current on the frontend's thread only.
+With citra_graphics_api OpenGL every game crashed at its first draw: the GL
+rasterizer called from the worker had no context, a mapping came back null
+and SyncAndUploadLUTs wrote through it (SIGSEGV at address 0, tid of the
+worker). AsyncModeFromProps() returns 0 for OpenGL.
+
+diff --git a/src/video_core/gpu.cpp b/src/video_core/gpu.cpp
+index b783aa5..4f873b7 100644
+--- a/src/video_core/gpu.cpp
++++ b/src/video_core/gpu.cpp
+@@ -22,6 +22,7 @@
+ #include "common/gammaos_tweak.h"
+ #include "common/hacks/hack_manager.h"
+ #include "common/microprofile.h"
++#include "common/settings.h"
+ #include "core/core.h"
+ #include "core/core_timing.h"
+ #include "core/hle/service/gsp/gsp_gpu.h"
+@@ -1137,6 +1138,13 @@ void GPU::RunDraw(DrawJob& job) {
+ /// The async GPU mode the properties ask for: 0 to 3 when set, else 3 on the Mali devices and 0
+ /// elsewhere.
+ int GPU::AsyncModeFromProps() {
++    // dArkOS: the worker drives the rasterizer from its own thread. Vulkan can be driven from any
++    // thread; an OpenGL context (RetroArch's gl driver) is current on the frontend's thread only, so
++    // the GL rasterizer called from the worker had no context and crashed in SyncAndUploadLUTs
++    // (a null mapping). OpenGL keeps the work on the emulation thread.
++    if (Settings::values.graphics_api.GetValue() == Settings::GraphicsAPI::OpenGL) {
++        return 0;
++    }
+     char v[PROP_VALUE_MAX] = {};
+     GammaGameProp::Get("async_gpu", v);
+     if (v[0] >= '0' && v[0] <= '3') {

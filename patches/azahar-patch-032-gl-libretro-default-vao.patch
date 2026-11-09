@@ -1,0 +1,29 @@
+From: dArkOS RG52 Mini port
+Subject: libretro GL: the default vertex array left bound for RetroArch
+
+RetroArch shares the core's GL context and draws its frame with
+glVertexAttribPointer and glEnable/DisableVertexAttribArray on whatever vertex
+array is bound, after SwapBuffers returns. SwapBuffers restored the
+presenter's state, VAO included, so RetroArch overwrote that VAO's attributes
+(its own buffer, the arrays left disabled) and the next present drew a
+degenerate quad: the game rendered (its screen texture had the picture) and
+the screen stayed black. The state is restored with the default vertex array;
+every draw of the core binds its own.
+
+diff --git a/src/citra_libretro/emu_window/libretro_window.cpp b/src/citra_libretro/emu_window/libretro_window.cpp
+index 5e26f37..1800e54 100644
+--- a/src/citra_libretro/emu_window/libretro_window.cpp
++++ b/src/citra_libretro/emu_window/libretro_window.cpp
+@@ -80,6 +80,12 @@ void EmuWindow_LibRetro::SwapBuffers() {
+         }
+         LibRetro::UploadVideoFrame(RETRO_HW_FRAME_BUFFER_VALID, static_cast<unsigned>(width),
+                                    static_cast<unsigned>(height), 0);
++        // dArkOS: RetroArch shares this context and draws its frame with glVertexAttribPointer and
++        // glEnable/DisableVertexAttribArray on whatever vertex array is bound, after this returns.
++        // Restoring the presenter's VAO here let it overwrite that VAO's attributes (its own buffer,
++        // arrays left disabled): the next present drew a degenerate quad and the screen stayed
++        // black. Leave the default vertex array bound; every draw of ours binds its own.
++        current_state.draw.vertex_array = 0;
+         current_state.Apply();
+ #endif
+         break;

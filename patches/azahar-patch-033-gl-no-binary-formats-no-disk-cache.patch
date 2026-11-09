@@ -1,0 +1,33 @@
+From: dArkOS RG52 Mini port
+Subject: GL: no disk shader cache when the driver has no binary formats
+
+Mali's libmali (g29p1) reports no program binary formats and takes no binary
+back: glProgramBinary of its own GL_MALI_PROGRAM_BINARY_ARM output fails to
+link. Every precompiled entry was thrown away, and each start rebuilt every
+program the transferable cache listed, about 1.4 s each on the RG52 Mini (122
+for one game: nearly three minutes on its logo). With no binary format the
+disk cache is not used at all (nothing loaded, nothing written); shaders are
+built when they are first needed.
+
+diff --git a/src/video_core/renderer_opengl/gl_shader_manager.cpp b/src/video_core/renderer_opengl/gl_shader_manager.cpp
+index f4cdc7b..5fa5ca7 100644
+--- a/src/video_core/renderer_opengl/gl_shader_manager.cpp
++++ b/src/video_core/renderer_opengl/gl_shader_manager.cpp
+@@ -504,6 +504,17 @@ void ShaderProgramManager::LoadDiskCache(const std::atomic_bool& stop_loading,
+                                          const VideoCore::DiskResourceLoadCallback& callback,
+                                          bool accurate_mul) {
+     auto& disk_cache = impl->disk_cache;
++    // dArkOS: Mali's libmali (g29p1) reports no program binary formats and takes no binary back
++    // (glProgramBinary of its own GL_MALI_PROGRAM_BINARY_ARM output fails to link), so every
++    // precompiled entry was thrown away and each start rebuilt every program the transferable cache
++    // listed, about 1.4 s each on the RG52 Mini: 122 programs of one game kept it on its logo for
++    // nearly three minutes. With no binary format the disk cache only costs that start; returning
++    // before LoadTransferable leaves it unused (IsUsable() needs tried_to_load), so nothing is
++    // written either, and shaders are built when they are first needed, as without the cache.
++    if (GetSupportedFormats().empty()) {
++        LOG_INFO(Render_OpenGL, "No program binary formats: the disk shader cache is not used");
++        return;
++    }
+     const auto transferable = disk_cache.LoadTransferable();
+     if (!transferable) {
+         return;

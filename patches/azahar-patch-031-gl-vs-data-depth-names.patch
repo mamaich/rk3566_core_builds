@@ -1,0 +1,116 @@
+From: dArkOS RG52 Mini port
+Subject: GL: the vertex stages' depth_scale and depth_offset renamed
+
+azahar-nano gave the vertex stages' vs_data block depth_scale and
+depth_offset; fs_data has members by the same names. Neither block has an
+instance name, so in GLSL ES their members share one namespace across the
+program, and Mali refused to link every program: "Shaders use a uniform block
+with no instance object vs_data that conflicts with the member of the uniform
+block fs_data which have no instance object." No draw reached the screen.
+
+Vulkan compiles each stage to SPIR-V on its own (no clash) and keys its VS
+SPIR-V cache by the generated text, so the generator is left alone and only
+the GL backend renames the two (vs_depth_scale, vs_depth_offset) in the vertex
+and geometry stages it builds: the programmable and trivial vertex shaders,
+the fixed geometry shader and the disk cache's rebuild. The block is bound by
+its binding, so the names never reach the C++ side.
+
+diff --git a/src/video_core/renderer_opengl/gl_shader_manager.cpp b/src/video_core/renderer_opengl/gl_shader_manager.cpp
+index ba05e32..f4cdc7b 100644
+--- a/src/video_core/renderer_opengl/gl_shader_manager.cpp
++++ b/src/video_core/renderer_opengl/gl_shader_manager.cpp
+@@ -3,6 +3,8 @@
+ // Refer to the license.txt file included.
+ 
+ #include <algorithm>
++#include <cctype>
++#include <string_view>
+ #include <mutex>
+ #include <set>
+ #include <span>
+@@ -23,6 +25,52 @@
+ #include "video_core/shader/generator/profile.h"
+ 
+ using namespace Pica::Shader::Generator;
++
++namespace {
++// dArkOS: azahar-nano gave the vertex stages' vs_data block depth_scale and depth_offset, and fs_data
++// has members by the same names. Neither block has an instance name, so in GLSL ES their members
++// share one namespace across a program, and Mali refuses to link every program ("a uniform block
++// with no instance object vs_data that conflicts with the member of the uniform block fs_data").
++// Vulkan compiles each stage on its own and keys its SPIR-V cache by the generated text, so only the
++// GL path renames the two, in the vertex and geometry stages. The block is bound by its binding: the
++// names never reach the C++ side.
++std::string RenameVSDepth(std::string code) {
++    static constexpr std::string_view names[] = {"depth_scale", "depth_offset"};
++    const auto ident = [](char c) {
++        return std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_';
++    };
++    std::string out;
++    out.reserve(code.size() + 64);
++    for (std::size_t i = 0; i < code.size();) {
++        bool hit = false;
++        for (const std::string_view name : names) {
++            const std::size_t end = i + name.size();
++            if (code.compare(i, name.size(), name) == 0 && (i == 0 || !ident(code[i - 1])) &&
++                (end >= code.size() || !ident(code[end]))) {
++                out += "vs_";
++                out += name;
++                i = end;
++                hit = true;
++                break;
++            }
++        }
++        if (!hit) {
++            out += code[i++];
++        }
++    }
++    return out;
++}
++
++std::string GenerateVertexShaderGL(const Pica::ShaderSetup& setup, const PicaVSConfig& config,
++                                   const ExtraVSConfig& extra) {
++    return RenameVSDepth(GLSL::GenerateVertexShader(setup, config, extra));
++}
++
++std::string GenerateFixedGeometryShaderGL(const PicaFixedGSConfig& config,
++                                          const ExtraFixedGSConfig& extra) {
++    return RenameVSDepth(GLSL::GenerateFixedGeometryShader(config, extra));
++}
++} // namespace
+ using Pica::Shader::FSConfig;
+ 
+ namespace OpenGL {
+@@ -140,8 +188,8 @@ private:
+ class TrivialVertexShader {
+ public:
+     explicit TrivialVertexShader(const Driver& driver, bool separable) : program(separable) {
+-        const auto code =
+-            GLSL::GenerateTrivialVertexShader(driver.HasClipCullDistance(), separable);
++        const auto code = RenameVSDepth(
++            GLSL::GenerateTrivialVertexShader(driver.HasClipCullDistance(), separable));
+         program.Create(code.c_str(), GL_VERTEX_SHADER);
+     }
+     GLuint Get() const {
+@@ -252,10 +300,10 @@ private:
+ };
+ 
+ using ProgrammableVertexShaders =
+-    ShaderDoubleCache<PicaVSConfig, ExtraVSConfig, &GLSL::GenerateVertexShader, GL_VERTEX_SHADER>;
++    ShaderDoubleCache<PicaVSConfig, ExtraVSConfig, &GenerateVertexShaderGL, GL_VERTEX_SHADER>;
+ 
+ using FixedGeometryShaders =
+-    ShaderCache<PicaFixedGSConfig, &GLSL::GenerateFixedGeometryShader, GL_GEOMETRY_SHADER>;
++    ShaderCache<PicaFixedGSConfig, &GenerateFixedGeometryShaderGL, GL_GEOMETRY_SHADER>;
+ 
+ using FragmentShaders = ShaderCache<FSConfig, &GLSL::GenerateFragmentShader, GL_FRAGMENT_SHADER>;
+ 
+@@ -638,7 +686,7 @@ void ShaderProgramManager::LoadDiskCache(const std::atomic_bool& stop_loading,
+             if (raw.GetProgramType() == ProgramType::VS) {
+                 auto [conf, setup] = BuildVSConfigFromRaw(raw, driver, accurate_mul);
+                 ExtraVSConfig extra = impl->CalcExtraConfig(conf, accurate_mul);
+-                code = GLSL::GenerateVertexShader(setup, conf, extra);
++                code = GenerateVertexShaderGL(setup, conf, extra);
+                 OGLShaderStage stage{impl->separable};
+                 stage.Create(code.c_str(), GL_VERTEX_SHADER);
+                 handle = stage.GetHandle();
