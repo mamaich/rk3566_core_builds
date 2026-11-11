@@ -29,7 +29,12 @@ bitness="$(getconf LONG_BIT)"
 # (video.colour nds/nds_lite) on the Vulkan present's thread; then the ARM9 stopped in system
 # sleep, a paused game's emulation thread out of the real-time class, SIGINT and SIGTERM to one
 # waiting thread, rcheevos reset with the power-off reboot, Release by default, zh_CN.
-commit="ff08a3c151bced7ded3e0bb3950265446b789e91"
+# main 0688b41 (2026-11-09), v3.4.1 (add9693) and 6 commits after it: PGO profiles refreshed, the
+# display-engine framebuffers cleared before the UI's layer returns, DS_CHEEVOS_HOST; then
+# writes to VCOUNT honoured (local wireless: a guest's frames line up with the host's, one MP
+# exchange per frame), a --lan-join guest keeps trying until its host answers, the LAN MP wait
+# configurable.
+commit="0688b410e0fc7f373023a7b4b0eb6caf48ce5f6d"
 
 	# DSperate Standalone build
 	if [[ "$var" == "dsperate" ]]  && [[ "$bitness" == "64" ]]; then
