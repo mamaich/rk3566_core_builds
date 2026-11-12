@@ -14,8 +14,9 @@ bitness="$(getconf LONG_BIT)"
 # rg52mini: pinned (2026-11-12), 3 commits after v1.1 (HLE fixes of G_BRANCH_Z and Fast3D, Shader
 # Precompile on by default); the build tried on the console. Built for the Cortex-A53: upstream's
 # ARMN64_TUNE asks for armv8.2-a and the A55, which the RK3562 is not. Link-time optimisation was
-# tried and changed nothing. The core's fast GL renderer needs RetroArch's Vulkan driver here (the
-# image's config/armN64/armN64.cfg): under the gl driver it gets no context and draws on the CPU.
+# tried and changed nothing. Two patches of ours let its GL renderer work in RetroArch's gl driver
+# as a GLES build has it (patches/armn64-patch-0001 and 0002: each says what it fixes); without
+# them the core draws on the CPU there, three threads and two thirds of the speed.
 commit="58e58ca12abff5c88521d634f6e6ed021f1144f5"
 
 	# armn64 libretro core build

@@ -1,0 +1,28 @@
+armN64: the GL renderer in a RetroArch that has driver switching off
+
+RetroArch answers RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER with false when
+driver_switch_enable is off, as dArkOS and ArkOS ship it, though it has filled
+in the context its video driver has ("Driver switching disabled,
+GET_PREFERRED_HW_RENDER will be ignored" in its log). armN64 took the false
+for "no GL context", never asked for one, and drew with its CPU renderer
+without a word: three threads at 60-80% of a Cortex-A53 each, Zelda's title
+at 42 frames a second, and the GL Renderer options without effect.
+
+The answer is used whatever the call returns; a frontend that fills nothing
+in leaves RETRO_HW_CONTEXT_NONE, which is refused as before.
+
+--- a/libretro/libretro.c	2026-11-12 12:09:50.802475429 +0300
++++ b/libretro/libretro.c	2026-11-12 12:09:50.834212117 +0300
+@@ -703,9 +703,9 @@
+ // compatibility profile is asked for without a version.
+ static bool askHardwareContext(void) {
+ 	unsigned preferred = RETRO_HW_CONTEXT_NONE;
+-	if (!environment(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER, &preferred)) {
+-		return false;
+-	}
++	// RetroArch answers false when its driver switching is off (dArkOS, ArkOS), and still names the
++	// context its video driver has: the answer is taken, the return value is not.
++	environment(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER, &preferred);
+ 	bool es = preferred == RETRO_HW_CONTEXT_OPENGLES2 || preferred == RETRO_HW_CONTEXT_OPENGLES3 || preferred == RETRO_HW_CONTEXT_OPENGLES_VERSION;
+ 	if (!es && preferred != RETRO_HW_CONTEXT_OPENGL && preferred != RETRO_HW_CONTEXT_OPENGL_CORE) {
+ 		return false;

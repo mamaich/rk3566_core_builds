@@ -1,0 +1,72 @@
+armN64: a picture with the GL renderer under RetroArch's gl driver (GLES)
+
+With the GL renderer in the frontend's context (RetroArch's gl driver, as a
+GLES build of RetroArch has it; no second context is made for the core, so
+both draw in one), the game ran at full speed on a picture that had only the
+RDP's fills in it: black in Zelda's and AeroGauge's titles, the sky's blue in
+Air Boarder's. A GL call tracer showed about 70 draws a frame, the blit into
+the frontend's framebuffer and no GL error.
+
+The renderer sets its vertex array's layout once, when it is made, and leaves
+the array bound. RetroArch's gl driver has no vertex array of its own in a
+GLES 3 context: gl_glsl_set_attribs points the attributes of whichever array
+is bound at its quad's buffer, and gl_glsl_reset_attrib disables them when the
+driver hands the context back. From the frontend's first frame on, the
+renderer's draws had no vertex attributes.
+
+glrForget, which already puts back what the frontend may have left in the
+context, now sets the layout again too.
+
+Seen on an RG52 Mini (RK3562, Mali-G52, RetroArch 1.22.2, GLES 3.2).
+
+--- a/src/glr.c	2026-11-12 14:08:35.868611018 +0300
++++ b/src/glr.c	2026-11-12 14:08:35.899715813 +0300
+@@ -432,6 +432,24 @@
+ #undef GLFN
+ }
+ 
++// The vertex array's layout: set when the renderer is made, and again whenever the frontend has
++// drawn in the context. RetroArch's gl driver, the one a GLES build has, keeps no vertex array of
++// its own: it points the attributes of whichever array is bound (this one) at its quad's buffer,
++// and disables them when it is done, after which nothing the renderer draws reaches the picture.
++static void vertexLayout(struct Glr* g) {
++	struct Gl* gl = &g->gl;
++	gl->BindVertexArray(g->vertexArray);
++	gl->BindBuffer(GL_ARRAY_BUFFER, g->vertexBuffer);
++	gl->VertexAttribPointer(0, 4, GL_FLOAT, 0, VERTEX_FLOATS * 4, (const void*) 0);
++	gl->VertexAttribPointer(1, 4, GL_FLOAT, 0, VERTEX_FLOATS * 4, (const void*) 16);
++	gl->VertexAttribPointer(2, 2, GL_FLOAT, 0, VERTEX_FLOATS * 4, (const void*) 32);
++	gl->VertexAttribIPointer(3, 1, GL_UNSIGNED_INT, VERTEX_FLOATS * 4, (const void*) 40);
++	gl->EnableVertexAttribArray(0);
++	gl->EnableVertexAttribArray(1);
++	gl->EnableVertexAttribArray(2);
++	gl->EnableVertexAttribArray(3);
++}
++
+ // ---- Shaders
+ 
+ static const char vertexSource[] =
+@@ -2469,14 +2487,7 @@
+ 	gl->GenBuffers(1, &g->vertexBuffer);
+ 	gl->BindBuffer(GL_ARRAY_BUFFER, g->vertexBuffer);
+ 	gl->BufferData(GL_ARRAY_BUFFER, VERTEX_BUFFER_BYTES, NULL, GL_STREAM_DRAW);
+-	gl->VertexAttribPointer(0, 4, GL_FLOAT, 0, VERTEX_FLOATS * 4, (const void*) 0);
+-	gl->VertexAttribPointer(1, 4, GL_FLOAT, 0, VERTEX_FLOATS * 4, (const void*) 16);
+-	gl->VertexAttribPointer(2, 2, GL_FLOAT, 0, VERTEX_FLOATS * 4, (const void*) 32);
+-	gl->VertexAttribIPointer(3, 1, GL_UNSIGNED_INT, VERTEX_FLOATS * 4, (const void*) 40);
+-	gl->EnableVertexAttribArray(0);
+-	gl->EnableVertexAttribArray(1);
+-	gl->EnableVertexAttribArray(2);
+-	gl->EnableVertexAttribArray(3);
++	vertexLayout(g);
+ 	gl->PixelStorei(GL_PACK_ALIGNMENT, 1);
+ 	gl->PixelStorei(GL_UNPACK_ALIGNMENT, 1);
+ 	gl->Disable(GL_DITHER);
+@@ -2651,6 +2662,7 @@
+ 		gl->Disable(GL_STENCIL_TEST);
+ 		gl->Disable(GL_DITHER);
+ 		gl->ColorMask(1, 1, 1, 1);
++		vertexLayout(n->glr);
+ 	}
+ }
+ 
