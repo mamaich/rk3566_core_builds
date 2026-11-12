@@ -17,7 +17,11 @@ bitness="$(getconf LONG_BIT)"
 # master of 2026-11-04 (584366c, 10 commits after e8c4246)
 # master of 2026-11-06 (4a70679, 11 commits after 584366c): bounds on FIFO memory updates
 # and on legacy savestate LZO decompression, a monotonic clock for sockets
-TAG="4a70679d0adcd17220568f5c18d2d4005eeea0a2"
+# master of 2026-11-11 (db2afcb, 15 commits after 4a70679), the owner's word of 2026-11-12, for its
+# two CRT post-processing shaders (Sys/Shaders/crt_pi.glsl, made for slow GPUs, and
+# crt_lottes_fast.glsl; chosen with PostProcessingShader in GFX.ini). The rest: macOS packaging,
+# Skylanders audio, one game's setting, glslang's headers under clang.
+TAG="db2afcbdf8f5175a6b8414d9f5e21c978775f651"
 	# dolphin Standalone build
 	if [[ "$var" == "dolphinsa" ]] && [[ "$bitness" == "64" ]]; then
 	 cd $cur_wd

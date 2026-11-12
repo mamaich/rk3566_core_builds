@@ -12,7 +12,12 @@
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
 # rg52mini: pinned (2026-10-28), the build tried on the console
-commit="20061e22f3cf36d805e4c48e0a53a0f58802f84a"
+# v1.5 (b1c4a69, 2026-11-08), 60 commits after 20061e2: LCD effects (ghosting, subpixels, grid,
+# interlaced rows) on the CPU or in its shaders, cartridge clocks on real or game time, a CPU
+# clock option, e-Reader cards and the Game Boy Printer, SRAM for reproduction cartridges'
+# images, a JIT fix for ARM code at a halfword address. Main is 15 commits further (2026-11-12:
+# recompiler changes from a 3DS port, built with -fwrapv): left for the next check.
+commit="b1c4a69c99797d93f0f96901b69b9fd7bf7917c3"
 
 	# Libretro armgba build
 	if [[ "$var" == "armgba" || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then
