@@ -8,7 +8,7 @@
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-commit="a4d0a85439dcdb6801ac37d2555c1e581c42f343"
+commit="62eeee40e4733ffe35e53002bc8cea6acecfd31e"
 
 	# Libretro RetroArch from master
 	if [[ "$var" == "retroarch-next" ]] && [[ "$bitness" == "64" ]]; then

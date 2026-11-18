@@ -14,7 +14,9 @@ bitness="$(getconf LONG_BIT)"
 # dArkOS RG52 Mini: pinned to the commit tested on the console. Since 684926fe20 (2026-10-13) its
 # built-in "Opera Boot" BIOS is the default: a 3DO game starts with no BIOS file, where the older
 # build the image downloaded stayed on a black screen.
-commit="595fd1db7d5bf0d3ca63d2292854d587ddcfa94b"
+# e01f1dc (2026-11-17), 4 commits on: CHD hunks lent from the frontend's mapping (VFS v7),
+# libretro-common resynced.
+commit="e01f1dc83e325596b2d09e7f286b0219459433e6"
 
 	# Libretro opera build
 	if [[ "$var" == "opera" || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then

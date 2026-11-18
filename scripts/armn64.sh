@@ -17,7 +17,10 @@ bitness="$(getconf LONG_BIT)"
 # tried and changed nothing. Two patches of ours let its GL renderer work in RetroArch's gl driver
 # as a GLES build has it (patches/armn64-patch-0001 and 0002: each says what it fixes); without
 # them the core draws on the CPU there, three threads and two thirds of the speed.
-commit="58e58ca12abff5c88521d634f6e6ed021f1144f5"
+# v1.3 (c5c1a4c, 2026-11-17), 88 commits after 58e58ca: GL and RDP fixes (depth image, copy-mode
+# rectangles, triangles reading the image), HLE clipping and task timing, options that take
+# effect while the game runs. Both patches apply as they are; neither is upstream.
+commit="c5c1a4cb9c495f040edb316c44d80b1156bf1095"
 
 	# armn64 libretro core build
 	if [[ "$var" == "armn64"  || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then
