@@ -34,7 +34,12 @@ bitness="$(getconf LONG_BIT)"
 # writes to VCOUNT honoured (local wireless: a guest's frames line up with the host's, one MP
 # exchange per frame), a --lan-join guest keeps trying until its host answers, the LAN MP wait
 # configurable.
-commit="0688b410e0fc7f373023a7b4b0eb6caf48ce5f6d"
+# v3.5.0 (3a2bcd2, 2026-11-20), 17 commits after 0688b41: GPU 3D at 1x, 2x and 4x merged by
+# the present, the RGA present gone, the KMS sink turning the picture itself where SDL reports
+# the panel turned (by 270 unless DS_ROTATE says otherwise: nds.sh sets 90 on the RG52 Mini's
+# panel, whose picture came out upside down), notices while GPU shaders compile, PGO profiles
+# refreshed. Diddy Kong Racing DS: 59.9 fps, the CPU at 18% of the four cores against 29% (2026-11-21).
+commit="3a2bcd2cca016b2c38f9a11a5159ab9c3d16b883"
 
 	# DSperate Standalone build
 	if [[ "$var" == "dsperate" ]]  && [[ "$bitness" == "64" ]]; then

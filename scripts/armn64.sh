@@ -20,7 +20,11 @@ bitness="$(getconf LONG_BIT)"
 # v1.3 (c5c1a4c, 2026-11-17), 88 commits after 58e58ca: GL and RDP fixes (depth image, copy-mode
 # rectangles, triangles reading the image), HLE clipping and task timing, options that take
 # effect while the game runs. Both patches apply as they are; neither is upstream.
-commit="c5c1a4cb9c495f040edb316c44d80b1156bf1095"
+# v1.4.1 (10141db, 2026-11-19), 25 commits after v1.3: the GL renderer on Vulkan (vkgl) in
+# Vulkan frontends, its pictures handed to RetroArch's Vulkan images through a dma-buf, an HLE
+# texture-rectangle fix. Both patches apply with offsets; on RetroArch's gl driver as the image
+# has it: Zelda 59.8, AeroGauge 60.0, Air Boarder 50.4 fps, as with v1.3 (2026-11-21).
+commit="10141dbe40067bc9f96442a4d5bbfae4d9f1493f"
 
 	# armn64 libretro core build
 	if [[ "$var" == "armn64"  || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then

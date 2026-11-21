@@ -21,7 +21,9 @@ bitness="$(getconf LONG_BIT)"
 # compiled code or stepping, a Video Threads option, frames fast-forward will not show left
 # undrawn, Device Motion for tilt and gyro cartridges, Mega Duck games, Action Replay and
 # GameShark cartridges, the recompiler's code memory an eighth of RAM (up to 128 MiB).
-commit="a06ea8c3c91606935f12457cec9a00549afa8983"
+# v1.8.1 (df6b263, 2026-11-19), 2 commits after v1.8: the overflows of a timer whose interrupt
+# IE leaves out, with its IF bit already set, are quiet. Apotris: 60 fps as on v1.8 (2026-11-21).
+commit="df6b2631291f249d54a00dd14f49bc893e438feb"
 
 	# Libretro armgba build
 	if [[ "$var" == "armgba" || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then

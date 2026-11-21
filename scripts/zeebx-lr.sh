@@ -17,7 +17,10 @@ bitness="$(getconf LONG_BIT)"
 # builds ZeebxTeam/zeebx-emu, the emulator's own repository, at a release tag.
 # frontends/libretro builds without the desktop features (no window, sound or pad of the
 # host): video, audio and input come from RetroArch.
-tag="v0.5.1"
+# v0.6.0 (2026-11-19): the libretro frontend and the core translated from Portuguese to English.
+# Our two patches ported to the new names, the logic unchanged. Action Hero 3D: 22.7-23.0 fps as
+# with v0.5.1, its 2D opening drawn through patch 0001's bridge (2026-11-21).
+tag="v0.6.0"
 # Its locked dependencies want rustc 1.93 or newer (sevenz-rust2 0.23); Debian trixie has 1.85.
 # The official toolchain from static.rust-lang.org, pinned and checked, unpacked inside the
 # core builds directory (cleanup_filesystem.sh removes it), with CARGO_HOME beside it, so

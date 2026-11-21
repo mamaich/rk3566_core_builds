@@ -5,10 +5,12 @@
 # Pinned: a newer master is a deliberate update, made after the same checks on the console
 # (docs/KNOWN-ISSUES.md, "RetroArch from master"). Its patches, patches/retroarch-next/, are
 # the release's ported to master; they are applied in their numbered order.
+# master of 2026-11-21 (4c5d1de): GBA, SNES, Mega Drive, FBNeo, PS1 and GBC at 60 fps against
+# 62eeee4, the same CPU and pictures; the patches apply with offsets (2026-11-21).
 
 cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
-commit="62eeee40e4733ffe35e53002bc8cea6acecfd31e"
+commit="4c5d1de840245ac67868ca07ff1c21d3aba94cb3"
 
 	# Libretro RetroArch from master
 	if [[ "$var" == "retroarch-next" ]] && [[ "$bitness" == "64" ]]; then

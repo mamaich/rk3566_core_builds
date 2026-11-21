@@ -21,7 +21,11 @@ bitness="$(getconf LONG_BIT)"
 # two CRT post-processing shaders (Sys/Shaders/crt_pi.glsl, made for slow GPUs, and
 # crt_lottes_fast.glsl; chosen with PostProcessingShader in GFX.ini). The rest: macOS packaging,
 # Skylanders audio, one game's setting, glslang's headers under clang.
-TAG="db2afcbdf8f5175a6b8414d9f5e21c978775f651"
+# master of 2026-11-21 (b2c2c21, 97 commits after db2afcb): the JIT's icache invalidated only
+# on dcbf, an Arm64 emitter fix, EFB/XFB clears faster, interpreter carry fixes, AX surround and
+# de-pop fixes, GameCube microphone settings, a hang of quickly stopped games fixed. The ND Demo:
+# 50.3 and 50.2 fps against 50.3 and 49.4 for db2afcb, the same picture (2026-11-21).
+TAG="b2c2c21e58d4acc5de49e8c7d3bc76c8e34f6476"
 	# dolphin Standalone build
 	if [[ "$var" == "dolphinsa" ]] && [[ "$bitness" == "64" ]]; then
 	 cd $cur_wd
