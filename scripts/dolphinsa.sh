@@ -26,9 +26,34 @@ bitness="$(getconf LONG_BIT)"
 # de-pop fixes, GameCube microphone settings, a hang of quickly stopped games fixed. The ND Demo:
 # 50.3 and 50.2 fps against 50.3 and 49.4 for db2afcb, the same picture (2026-11-21).
 TAG="b2c2c21e58d4acc5de49e8c7d3bc76c8e34f6476"
+# Built with clang and a profile for its profile-guided optimisation (for 1.13, the owner's word of
+# 2026-11-22). The profile: an instrumented build of this recipe, in this tree's path, playing Super
+# Mario Galaxy 2 and Metroid Prime from the owner's savestates and the ND Demo from boot (150 s each)
+# on an RG52 Mini. Galaxy 2 from its savestate, 2 rounds: gcc (before) 24.1 fps, clang alone 25.2,
+# clang with the profile 26.1 (+8%); the Soulcalibur II demo, not in the training: level (27.6 / 27.7).
+# File-local functions are named in the profile by the path of their source, so it fits only a build
+# in /home/ark/rk3562_core_builds/dolphin (the image build's chroot). A new profile changes these lines
+# and with them the recipe's cache key.
+PGO="pgo/dolphin-b2c2c21-20261122.profdata.gz"
+PGO_SHA256="d67070aa0e86490272eedf02e98e3f3ab67ee0c2095ac62e4b17b340b97c66c2"
 	# dolphin Standalone build
 	if [[ "$var" == "dolphinsa" ]] && [[ "$bitness" == "64" ]]; then
 	 cd $cur_wd
+	  if [ "$(sha256sum ${PGO} | cut -c1-64)" != "${PGO_SHA256}" ]; then
+		echo " "
+		echo "The dolphin PGO profile ${PGO} is missing or not the one this recipe names.  Stopping here."
+		exit 1
+	  fi
+	  # clang reads the profile (llvm-profdata 19 made it; Debian trixie's clang is 19); lld links
+	  # its ThinLTO, llvm-ar archives the bitcode objects
+	  if ! dpkg -s clang lld llvm &>/dev/null; then
+		apt-get -y update && apt-get -y install clang lld llvm
+		if [[ $? != "0" ]]; then
+		  echo " "
+		  echo "Could not install clang, lld and llvm.  Stopping here."
+		  exit 1
+		fi
+	  fi
 
 	  # Now we'll start the clone and build of dolphin standalone
 	  if [ ! -d "dolphin/" ]; then
@@ -40,6 +65,7 @@ TAG="b2c2c21e58d4acc5de49e8c7d3bc76c8e34f6476"
 		  exit 1
 		fi
 		cp patches/dolphinsa-patch* dolphin/.
+		gunzip -c ${PGO} > dolphin/dolphin.profdata
 	  else
 		echo " "
 		echo "A dolphin standalone subfolder already exists.  Stopping here to not impact anything in the folder that may be needed.  If not needed, please remove the dolphin standalone folder and rerun this script."
@@ -69,7 +95,20 @@ TAG="b2c2c21e58d4acc5de49e8c7d3bc76c8e34f6476"
              mkdir build
              cd build
 
-             cmake -DENABLE_HEADLESS=ON \
+             # CLANG_CC/CLANG_CXX: dArkOS's image build hands in the amd64 build of this clang,
+             # mounted into its arm64 chroot, which runs without qemu (its xtool.sh); the same
+             # compiler, so the same binary. -fuse-ld=lld is in the compile flags too: CMake's
+             # LTO check links its test project with those alone, and bfd ld has no LLVMgold
+             # here (the build would go on without LTO).
+             cc=${CLANG_CC:-/usr/bin/clang}; cxx=${CLANG_CXX:-/usr/bin/clang++}; llvm_bin=$(dirname $cc)
+             dflags="-march=armv8-a -moutline-atomics -fuse-ld=lld -Wno-unused-command-line-argument -fprofile-use=$cur_wd/dolphin/dolphin.profdata -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date -Wno-backend-plugin"
+             cmake -DCMAKE_C_COMPILER=$cc -DCMAKE_CXX_COMPILER=$cxx \
+             -DCMAKE_AR=$llvm_bin/llvm-ar -DCMAKE_RANLIB=$llvm_bin/llvm-ranlib \
+             -DCMAKE_C_COMPILER_AR=$llvm_bin/llvm-ar -DCMAKE_CXX_COMPILER_AR=$llvm_bin/llvm-ar \
+             -DCMAKE_C_COMPILER_RANLIB=$llvm_bin/llvm-ranlib -DCMAKE_CXX_COMPILER_RANLIB=$llvm_bin/llvm-ranlib \
+             -DCMAKE_C_FLAGS="$dflags" -DCMAKE_CXX_FLAGS="$dflags" \
+             -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
+             -DENABLE_HEADLESS=ON \
              -DENABLE_EGL=ON \
              -DENABLE_EVDEV=ON \
              -DENABLE_TESTS=OFF \
