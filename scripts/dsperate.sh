@@ -39,7 +39,16 @@ bitness="$(getconf LONG_BIT)"
 # the panel turned (by 270 unless DS_ROTATE says otherwise: nds.sh sets 90 on the RG52 Mini's
 # panel, whose picture came out upside down), notices while GPU shaders compile, PGO profiles
 # refreshed. Diddy Kong Racing DS: 59.9 fps, the CPU at 18% of the four cores against 29% (2026-11-21).
-commit="3a2bcd2cca016b2c38f9a11a5159ab9c3d16b883"
+# v4.0.2 (70af4fc, 2026-11-24), v4.0.0 and v4.0.1 and 122 commits after v3.5.0: saves, states and the config
+# written to a temporary file and renamed into place (a .sav that cannot be read stops the launch), NAND
+# saves (WarioWare: D.I.Y.), DeSmuME .dsv saves used as they are, the motion accessories, the DSi's sound
+# processor and cameras, DSi-enhanced cards (off by default), a turbo CPU timing, recompiler and hardware
+# accuracy fixes, the GPU 3D rasters' cracks filled, faster DSi Menu launches and video memory remaps, a
+# hardware audio filter and a plain small screen as options, sound back after its device returns (HDMI),
+# PGO profiles refreshed; FAAD2 and teakra vendored. Nothing new is linked; our patch applies with an
+# offset; the config keys we set are unchanged. Diddy Kong Racing DS: 60 fps, the CPU at 25% of the four
+# cores against 28% with v3.5.0 (2026-11-25).
+commit="70af4fc1a29cdc615aa93e8e1ba73d8ccc266610"
 
 	# DSperate Standalone build
 	if [[ "$var" == "dsperate" ]]  && [[ "$bitness" == "64" ]]; then

@@ -24,7 +24,9 @@ bitness="$(getconf LONG_BIT)"
 # Vulkan frontends, its pictures handed to RetroArch's Vulkan images through a dma-buf, an HLE
 # texture-rectangle fix. Both patches apply with offsets; on RetroArch's gl driver as the image
 # has it: Zelda 59.8, AeroGauge 60.0, Air Boarder 50.4 fps, as with v1.3 (2026-11-21).
-commit="10141dbe40067bc9f96442a4d5bbfae4d9f1493f"
+# main 33680bc (2026-11-21), 1 commit after v1.4.1: Quit Twice and Quit Hold in the standalone app
+# (armulators). The libretro core built from it is byte for byte v1.4.1's; both patches apply (2026-11-25).
+commit="33680bcb65f32e98147b710adff42367aa451109"
 
 	# armn64 libretro core build
 	if [[ "$var" == "armn64"  || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then

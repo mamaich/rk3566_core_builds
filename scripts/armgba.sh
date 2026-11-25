@@ -23,7 +23,12 @@ bitness="$(getconf LONG_BIT)"
 # GameShark cartridges, the recompiler's code memory an eighth of RAM (up to 128 MiB).
 # v1.8.1 (df6b263, 2026-11-19), 2 commits after v1.8: the overflows of a timer whose interrupt
 # IE leaves out, with its IF bit already set, are quiet. Apotris: 60 fps as on v1.8 (2026-11-21).
-commit="df6b2631291f249d54a00dd14f49bc893e438feb"
+# v2.0 (fad6c4b, 2026-11-23), 50 commits after v1.8.1: the recompiler reuses translated blocks of code a
+# game copies back into RAM and frees its cache a piece at a time, a CPU Emulation option (recompiler or
+# interpreter while a game runs) with the two giving the same states, interrupt and fetch timing fixes, HD
+# Affine Backgrounds, layer and sound channel selection, Threaded Video off by default again, Left Stick as
+# D-Pad on by default. Apotris: 60 fps, the CPU at 8% of the four cores as with v1.8.1 (2026-11-25).
+commit="fad6c4b0c0176a76e10667f4aa071a8feb4425c0"
 
 	# Libretro armgba build
 	if [[ "$var" == "armgba" || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then
