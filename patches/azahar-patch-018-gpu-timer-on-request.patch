@@ -17,35 +17,13 @@ to 660 of the intro, GPU job slots traced in kbase: on libmali 50.1 ms a
 frame before, 48.7 after (vertex-slot jobs 86 a frame before, 40 after); on
 malisx2 64.0 before, 63.1 after.
 
---- a/src/video_core/renderer_vulkan/vk_gammaos_gpu_timer.h
-+++ b/src/video_core/renderer_vulkan/vk_gammaos_gpu_timer.h
-@@ -42,6 +42,7 @@
-     std::uint32_t frame = 0;   // index of the pool being recorded
-     double period_ns = 1.0;
-     bool enabled = false;
-+    bool checked = false;  // dArkOS: whether the switch below was read
-     bool presenting = false;
-     // accumulated over the trace window, in ms
-     std::array<double, NumCategories> sum_ms{};
-@@ -53,6 +54,15 @@
- 
- inline State g;
- 
-+// dArkOS: the timer runs only with persist.gammaos.azahar_nano.gputime=1 (on Linux the
-+// variable persist_gammaos_azahar_nano_gputime). Every pair of timestamps orders the GPU
-+// work around it (malisx2 turns each into a job barrier), and only a profiling session
-+// reads the sums.
-+inline bool Wanted() {
-+    char v[PROP_VALUE_MAX] = {};
-+    return __system_property_get("persist.gammaos.azahar_nano.gputime", v) > 0 && v[0] == '1';
-+}
-+
- inline void Init(vk::Device device, float timestamp_period_ns, bool supported) {
-     if (!supported || g.enabled) return;
-     g.device = device;
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/video_core/renderer_vulkan/renderer_vulkan.cpp b/src/video_core/renderer_vulkan/renderer_vulkan.cpp
+index 1b7278782118ed1f662a429d3915cab4ed0ebcff..532ef43fc98c58f6aa9fc45122066cd191f815ee 100644
 --- a/src/video_core/renderer_vulkan/renderer_vulkan.cpp
 +++ b/src/video_core/renderer_vulkan/renderer_vulkan.cpp
-@@ -1655,10 +1655,13 @@
+@@ -1655,10 +1655,13 @@ void RendererVulkan::SwapBuffers() {
      g_swap_trace.last = trace_t0;
      g_swap_trace.last_cpu_ms = trace_cpu;
  #endif
@@ -63,3 +41,31 @@ malisx2 64.0 before, 63.1 after.
      }
      GammaGpu::FrameBoundary();
      renderpass_cache.EndRendering();
+diff --git a/src/video_core/renderer_vulkan/vk_gammaos_gpu_timer.h b/src/video_core/renderer_vulkan/vk_gammaos_gpu_timer.h
+index 994b728247bed11215303b278376864b72cf5e85..1f788a75869e4fb80e2038dea7a4edb37c5dbae7 100644
+--- a/src/video_core/renderer_vulkan/vk_gammaos_gpu_timer.h
++++ b/src/video_core/renderer_vulkan/vk_gammaos_gpu_timer.h
+@@ -42,6 +42,7 @@ struct State {
+     std::uint32_t frame = 0;   // index of the pool being recorded
+     double period_ns = 1.0;
+     bool enabled = false;
++    bool checked = false;  // dArkOS: whether the switch below was read
+     bool presenting = false;
+     // accumulated over the trace window, in ms
+     std::array<double, NumCategories> sum_ms{};
+@@ -53,6 +54,15 @@ struct State {
+ 
+ inline State g;
+ 
++// dArkOS: the timer runs only with persist.gammaos.azahar_nano.gputime=1 (on Linux the
++// variable persist_gammaos_azahar_nano_gputime). Every pair of timestamps orders the GPU
++// work around it (malisx2 turns each into a job barrier), and only a profiling session
++// reads the sums.
++inline bool Wanted() {
++    char v[PROP_VALUE_MAX] = {};
++    return __system_property_get("persist.gammaos.azahar_nano.gputime", v) > 0 && v[0] == '1';
++}
++
+ inline void Init(vk::Device device, float timestamp_period_ns, bool supported) {
+     if (!supported || g.enabled) return;
+     g.device = device;

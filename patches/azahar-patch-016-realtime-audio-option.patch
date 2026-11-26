@@ -10,9 +10,13 @@ RetroArch, which paces the audio itself, it is an option (Audio > Realtime
 Audio), on by default: the owner listened to Castlevania's intro (21 fps)
 both ways, and with it the sound is much better.
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/citra_libretro/core_settings.cpp b/src/citra_libretro/core_settings.cpp
+index 3ad9aa32cb9a83b101085b2c992e3e0a44ffaa9c..bacf69e0f8a29d7823b35f469ce26837b675cebf 100644
 --- a/src/citra_libretro/core_settings.cpp
 +++ b/src/citra_libretro/core_settings.cpp
-@@ -53,6 +53,7 @@
+@@ -54,6 +54,7 @@ static constexpr const char* language_value = citra_setting(BaseKeys::language_v
  namespace audio {
  static constexpr const char* audio_emulation = citra_setting(BaseKeys::audio_emulation);
  static constexpr const char* input_type = citra_setting(BaseKeys::input_type);
@@ -20,7 +24,7 @@ both ways, and with it the sound is much better.
  } // namespace audio
  
  namespace graphics {
-@@ -283,6 +284,22 @@
+@@ -301,6 +302,22 @@ static constexpr retro_core_option_v2_definition option_definitions[] = {
          },
          "auto"
      },
@@ -43,7 +47,7 @@ both ways, and with it the sound is much better.
  
      // Graphics Category
      {
-@@ -978,6 +995,12 @@
+@@ -1001,6 +1018,12 @@ static void ParseAudioOptions(void) {
      } else {
          Settings::values.input_type = AudioCore::InputType::Auto;
      }

@@ -20,49 +20,81 @@ property decides") at every display transfer and cache flush instead of once,
 so a change in the menu applies at once; turning the skip off forgets the
 right eye target it learned, which is then drawn and copied again.
 
---- a/src/common/settings.h
-+++ b/src/common/settings.h
-@@ -632,6 +632,11 @@
-     // GammaOS tweak: remember the guest code blocks the JIT compiled and compile
-     // them before the first frame of the next boot (and after state loads).
-     bool gammaos_jit_warmup = false;
-+    // dArkOS: GammaOS's stereo_skip and async_gpu_flush_lag as the libretro core's options
-+    // set them; -1 leaves them to the property (persist.gammaos.azahar_nano.*), as before.
-+    // Read at every display transfer and cache flush, so a change applies at once.
-+    std::atomic<int> gammaos_stereo_skip{-1};
-+    std::atomic<int> gammaos_async_gpu_flush_lag{-1};
-     SwitchableSetting<SecondaryDisplayLayout> secondary_display_layout{
-         SecondaryDisplayLayout::OppositeScreenOnly, Keys::secondary_display_layout};
-     SwitchableSetting<std::vector<LayoutOption>> layouts_to_cycle{
---- a/src/citra_libretro/core_settings.h
-+++ b/src/citra_libretro/core_settings.h
-@@ -33,9 +33,14 @@
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/citra_libretro/citra_libretro.cpp b/src/citra_libretro/citra_libretro.cpp
+index 24759cea0e8ddbcac18d6361ffe3f80be6443e31..1f1c1f9b253cb8a439236f24b57745e1b0045825 100644
+--- a/src/citra_libretro/citra_libretro.cpp
++++ b/src/citra_libretro/citra_libretro.cpp
+@@ -2,7 +2,6 @@
+ // Licensed under GPLv3 or any later version
+ // Refer to the LICENSE.txt file included.
  
-     float motion_sensitivity;
+-#include <array>
+ #include <list>
+ #include <numeric>
+ #include <vector>
+@@ -541,31 +540,6 @@ void retro_reset() {
+     emu_instance->first_run_loop = true;
+ }
  
-+    u64 program_id = 0; // dArkOS: the loaded title, for the options at Auto
-+
- } extern settings;
- 
- void RegisterCoreOptions(void);
- void ParseCoreOptions(void);
- 
-+/// dArkOS: the title being loaded (0 if unknown), for the options whose Auto depends on it.
-+void SetTitle(u64 program_id);
-+
- } // namespace LibRetro
+-/// dArkOS: GammaOS switches (environment variables named like their Android properties) that some
+-/// games need, set for those games unless the environment sets them already; the core reads each
+-/// once, at the game's first GPU work. Castlevania: Lords of Shadow - Mirror of Fate draws the two
+-/// eyes object by object, a render pass for each draw on the Mali GPU: stereo_skip leaves the right
+-/// eye out (with 3D off it is never shown), and async_gpu_flush_lag lets the GPU worker stay up to
+-/// 24 jobs behind at the cache flush the game makes before each command list instead of draining
+-/// it there. Its intro on an RG52 Mini: 9.2 fps, 11.1 with the first, 14.4 with both (no flush
+-/// wait at all gave the same).
+-static void SetTitleSwitches(u64 program_id) {
+-    struct TitleSwitch {
+-        u64 program_id;
+-        const char* name;
+-        const char* value;
+-    };
+-    static constexpr std::array<TitleSwitch, 2> switches{{
+-        {0x000400000009E500, "persist_gammaos_azahar_nano_stereo_skip", "1"},
+-        {0x000400000009E500, "persist_gammaos_azahar_nano_async_gpu_flush_lag", "24"},
+-    }};
+-    for (const auto& s : switches) {
+-        if (s.program_id == program_id && setenv(s.name, s.value, 0) == 0) {
+-            LOG_INFO(Frontend, "title {:016X}: {}={}", program_id, s.name, getenv(s.name));
+-        }
+-    }
+-}
+-
+ /**
+  * libretro callback; Called when a game is to be loaded.
+  */
+@@ -617,10 +591,12 @@ bool retro_load_game(const struct retro_game_info* info) {
+             }
+             return false;
+         }
++        // dArkOS: the title, for the core options whose Auto depends on it (core_settings.cpp)
+         u64 program_id{};
+-        if (loader->ReadProgramId(program_id) == Loader::ResultStatus::Success) {
+-            SetTitleSwitches(program_id);
++        if (loader->ReadProgramId(program_id) != Loader::ResultStatus::Success) {
++            program_id = 0;
+         }
++        LibRetro::SetTitle(program_id);
+         // Stash the loader so System::Load can reuse it instead of re-opening
+         Core::System::GetInstance().RegisterAppLoaderEarly(loader);
+     }
+diff --git a/src/citra_libretro/core_settings.cpp b/src/citra_libretro/core_settings.cpp
+index a52bd8436016145793e322c38225613478b05b7b..3ad9aa32cb9a83b101085b2c992e3e0a44ffaa9c 100644
 --- a/src/citra_libretro/core_settings.cpp
 +++ b/src/citra_libretro/core_settings.cpp
 @@ -2,6 +2,8 @@
- // Licensed under GPLv2 or any later version
- // Refer to the license.txt file included.
+ // Licensed under GPLv3 or any later version
+ // Refer to the LICENSE.txt file included.
  
 +#include <array>
 +#include <cstdlib>
  #include <boost/hana/string.hpp>
  
  #include "citra_libretro/core_settings.h"
-@@ -62,6 +64,9 @@
+@@ -63,6 +65,9 @@ static constexpr const char* async_shader_compilation =
      citra_setting(BaseKeys::async_shader_compilation);
  static constexpr const char* disable_right_eye_render =
      citra_setting(BaseKeys::disable_right_eye_render);
@@ -72,10 +104,11 @@ right eye target it learned, which is then drawn and copied again.
  static constexpr const char* use_disk_shader_cache = citra_setting(BaseKeys::use_disk_shader_cache);
  static constexpr const char* resolution_factor = citra_setting(BaseKeys::resolution_factor);
  static constexpr const char* texture_filter = citra_setting(BaseKeys::texture_filter);
-@@ -378,6 +383,47 @@
+@@ -397,6 +402,47 @@ static constexpr retro_core_option_v2_definition option_definitions[] = {
+         },
          config::enabled
      },
-     {
++    {
 +        config::graphics::stereo_skip,
 +        "Interleaved Right Eye Skip",
 +        "Interleaved Right Eye Skip",
@@ -116,11 +149,10 @@ right eye target it learned, which is then drawn and copied again.
 +        },
 +        "auto"
 +    },
-+    {
+     {
          config::graphics::use_disk_shader_cache,
          "Hardware Shader Cache",
-         "Shader Cache",
-@@ -973,6 +1019,57 @@
+@@ -1002,6 +1048,57 @@ static Settings::GraphicsAPI GetGraphicsAPI(const std::string& name) {
      return LibRetro::GetPreferredRenderer();
  }
  
@@ -178,7 +210,7 @@ right eye target it learned, which is then drawn and copied again.
  static void ParseGraphicsOptions(void) {
      Settings::values.graphics_api =
          GetGraphicsAPI(LibRetro::FetchVariable(config::graphics::graphics_api, "auto"));
-@@ -1013,6 +1110,8 @@
+@@ -1043,6 +1140,8 @@ static void ParseGraphicsOptions(void) {
      Settings::values.gammaos_hw_scissor = true;
      Settings::values.gammaos_jit_warmup = true;
  
@@ -187,66 +219,46 @@ right eye target it learned, which is then drawn and copied again.
      Settings::values.use_disk_shader_cache =
          LibRetro::FetchVariable(config::graphics::use_disk_shader_cache, config::enabled) ==
          config::enabled;
---- a/src/citra_libretro/citra_libretro.cpp
-+++ b/src/citra_libretro/citra_libretro.cpp
-@@ -2,7 +2,6 @@
- // Licensed under GPLv2 or any later version
- // Refer to the license.txt file included.
+diff --git a/src/citra_libretro/core_settings.h b/src/citra_libretro/core_settings.h
+index ecb695f757097497782a710a9421c6d97aa9f438..4d4f45ff39e6b0efdcf6ff2ce1c210c8e6954f5d 100644
+--- a/src/citra_libretro/core_settings.h
++++ b/src/citra_libretro/core_settings.h
+@@ -33,9 +33,14 @@ struct CoreSettings {
  
--#include <array>
- #include <list>
- #include <numeric>
- #include <vector>
-@@ -531,31 +530,6 @@
-     emu_instance->first_run_loop = true;
- }
+     float motion_sensitivity;
  
--/// dArkOS: GammaOS switches (environment variables named like their Android properties) that some
--/// games need, set for those games unless the environment sets them already; the core reads each
--/// once, at the game's first GPU work. Castlevania: Lords of Shadow - Mirror of Fate draws the two
--/// eyes object by object, a render pass for each draw on the Mali GPU: stereo_skip leaves the right
--/// eye out (with 3D off it is never shown), and async_gpu_flush_lag lets the GPU worker stay up to
--/// 24 jobs behind at the cache flush the game makes before each command list instead of draining
--/// it there. Its intro on an RG52 Mini: 9.2 fps, 11.1 with the first, 14.4 with both (no flush
--/// wait at all gave the same).
--static void SetTitleSwitches(u64 program_id) {
--    struct TitleSwitch {
--        u64 program_id;
--        const char* name;
--        const char* value;
--    };
--    static constexpr std::array<TitleSwitch, 2> switches{{
--        {0x000400000009E500, "persist_gammaos_azahar_nano_stereo_skip", "1"},
--        {0x000400000009E500, "persist_gammaos_azahar_nano_async_gpu_flush_lag", "24"},
--    }};
--    for (const auto& s : switches) {
--        if (s.program_id == program_id && setenv(s.name, s.value, 0) == 0) {
--            LOG_INFO(Frontend, "title {:016X}: {}={}", program_id, s.name, getenv(s.name));
--        }
--    }
--}
--
- /**
-  * libretro callback; Called when a game is to be loaded.
-  */
-@@ -607,10 +581,12 @@
-             }
-             return false;
-         }
-+        // dArkOS: the title, for the core options whose Auto depends on it (core_settings.cpp)
-         u64 program_id{};
--        if (loader->ReadProgramId(program_id) == Loader::ResultStatus::Success) {
--            SetTitleSwitches(program_id);
-+        if (loader->ReadProgramId(program_id) != Loader::ResultStatus::Success) {
-+            program_id = 0;
-         }
-+        LibRetro::SetTitle(program_id);
-         // Stash the loader so System::Load can reuse it instead of re-opening
-         Core::System::GetInstance().RegisterAppLoaderEarly(loader);
-     }
++    u64 program_id = 0; // dArkOS: the loaded title, for the options at Auto
++
+ } extern settings;
+ 
+ void RegisterCoreOptions(void);
+ void ParseCoreOptions(void);
+ 
++/// dArkOS: the title being loaded (0 if unknown), for the options whose Auto depends on it.
++void SetTitle(u64 program_id);
++
+ } // namespace LibRetro
+diff --git a/src/common/settings.h b/src/common/settings.h
+index 2e016f6802c3757f4a9f9eb9b59df0b0c5b57329..03215aa8e1830b2f4233c36e003c400c5d5261f5 100644
+--- a/src/common/settings.h
++++ b/src/common/settings.h
+@@ -668,6 +668,11 @@ struct Values {
+     // GammaOS tweak: remember the guest code blocks the JIT compiled and compile
+     // them before the first frame of the next boot (and after state loads).
+     bool gammaos_jit_warmup = false;
++    // dArkOS: GammaOS's stereo_skip and async_gpu_flush_lag as the libretro core's options
++    // set them; -1 leaves them to the property (persist.gammaos.azahar_nano.*), as before.
++    // Read at every display transfer and cache flush, so a change applies at once.
++    std::atomic<int> gammaos_stereo_skip{-1};
++    std::atomic<int> gammaos_async_gpu_flush_lag{-1};
+     SwitchableSetting<SecondaryDisplayLayout> secondary_display_layout{
+         SecondaryDisplayLayout::OppositeScreenOnly, Keys::secondary_display_layout};
+     SwitchableSetting<std::vector<LayoutOption>> layouts_to_cycle{
+diff --git a/src/video_core/gpu.cpp b/src/video_core/gpu.cpp
+index ea3051d7189e3e463e0fa0b0efc02e969392d50c..63ef613b98d1689715fb077466efd7d4ae25e597 100644
 --- a/src/video_core/gpu.cpp
 +++ b/src/video_core/gpu.cpp
-@@ -1426,11 +1426,15 @@
+@@ -1443,11 +1443,15 @@ Result GPU::Execute(const Service::GSP::Command& command) {
      }
      // persist.gammaos.azahar_nano.async_gpu_flush_lag=N: CacheFlush lets N jobs stay in flight
      // instead of waiting for the whole queue (0 = wait for everything, the safe default).
@@ -263,9 +275,11 @@ right eye target it learned, which is then drawn and copied again.
      if (AsyncQueued() && command.id == CommandId::CacheFlush && flush_lag > 0) {
          if (async->pending.load(std::memory_order_acquire) > flush_lag) {
              async->WaitPendingAtMost(flush_lag);
+diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+index 49d368d7e1bc04be73c5f4b3c2dfc87091f70367..6d5da8289f4d1e327f6781c386ba2b24f87dd2e1 100644
 --- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 +++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
-@@ -1721,11 +1721,17 @@
+@@ -1778,11 +1778,17 @@ bool RasterizerVulkan::OnDisplayTransferEye(const Pica::DisplayTransferConfig& c
                       lfb.address_left2, lfb.address_right1, lfb.address_right2, static_cast<u32>(lfb.active_fb));
          }
      }

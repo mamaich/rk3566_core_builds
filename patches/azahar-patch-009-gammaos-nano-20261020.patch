@@ -16,9 +16,13 @@ gammaos/emulators/azahar-nano):
 On the RG52 Mini, Super Mario 3D Land from its savestate, 60 s: 58.42 and
 58.68 fps against 58.47 and 58.62 without them, with the same profile.
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/core/perf_stats.cpp b/src/core/perf_stats.cpp
+index 868a8188f378fa875bd591696a2baba115f5a8b5..5da39012fb071bd7e46a47b33e0ecdb7d93682ac 100644
 --- a/src/core/perf_stats.cpp
 +++ b/src/core/perf_stats.cpp
-@@ -293,13 +293,21 @@
+@@ -320,13 +320,21 @@ void FrameLimiter::PaceBeforePresent(microseconds current_system_time_us) {
          g_pace_trace.sleeps++;
          g_pace_trace.sleep_us += duration_cast<microseconds>(Clock::now() - sleep_start).count();
      } else if (now > next_deadline + 2 * period) {
@@ -46,9 +50,11 @@ On the RG52 Mini, Super Mario 3D Land from its savestate, 60 s: 58.42 and
      }
  }
  
+diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+index d7cba238f05c32626874696da02c5db15feca92d..2c0a2c3af71a223254e9ec8dffc3c8107bae7402 100644
 --- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 +++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
-@@ -819,6 +819,16 @@
+@@ -840,6 +840,16 @@ bool RasterizerVulkan::AccelerateDrawBatchInternal(bool is_indexed) {
                  const u32 verts = regs.pipeline.num_vertices;
                  bool sw_ready = pipeline_cache.BindPipeline(sw_info, false);
                  hybrid_baked = false;
@@ -65,7 +71,7 @@ On the RG52 Mini, Super Mario 3D Land from its savestate, 60 s: 58.42 and
                  if (!sw_ready) {
                      // A precompiled baked shader (combiner compiled in, the rest dynamic)
                      // can draw this now; its pipeline for a new state builds quickly.
-@@ -845,7 +855,7 @@
+@@ -866,7 +876,7 @@ bool RasterizerVulkan::AccelerateDrawBatchInternal(bool is_indexed) {
                      }
                  }
                  bool skip = !sw_ready || (HybridDebugBits() & 16384);
@@ -74,7 +80,7 @@ On the RG52 Mini, Super Mario 3D Land from its savestate, 60 s: 58.42 and
                      // Over budget: hold this pipeline back. The budget is strict by default:
                      // forcing held draws through after a few frames (fallback_hold=N) let a
                      // cold cache burst stretch frames to 40 fps for ~20 s, while a strict
-@@ -876,7 +886,8 @@
+@@ -897,7 +907,8 @@ bool RasterizerVulkan::AccelerateDrawBatchInternal(bool is_indexed) {
      } else {
          const bool wait_built =
              !async_shaders || (!async_small && regs.pipeline.num_vertices <= 6);
@@ -84,7 +90,7 @@ On the RG52 Mini, Super Mario 3D Land from its savestate, 60 s: 58.42 and
              return true;
          }
      }
-@@ -1100,9 +1111,29 @@
+@@ -1121,9 +1132,29 @@ bool RasterizerVulkan::Draw(bool accelerate, bool is_indexed) {
          vertex_batch.clear();
          return true;
      }
@@ -115,7 +121,7 @@ On the RG52 Mini, Super Mario 3D Land from its savestate, 60 s: 58.42 and
              eye_draws_after_left = true;
              if (eye_learned && RightEyeSkipAllowed()) {
                  eye_phase = EyePhase::Skipping;
-@@ -1332,7 +1363,8 @@
+@@ -1364,7 +1395,8 @@ bool RasterizerVulkan::Draw(bool accelerate, bool is_indexed) {
          } else if (!Settings::values.gammaos_hybrid_uber) {
              // Skip mode: draw once the fast software path pipeline is built (it builds in
              // the background, about 55 ms); until then this draw is left out.
@@ -125,7 +131,7 @@ On the RG52 Mini, Super Mario 3D Land from its savestate, 60 s: 58.42 and
                  if (hybrid_baked) {
                      u32 variant_key = 0;
                      std::array<u32, 16> pack{};
-@@ -1663,6 +1695,15 @@
+@@ -1720,6 +1752,15 @@ bool RasterizerVulkan::OnDisplayTransferEye(const Pica::DisplayTransferConfig& c
          stereo_right_rt = 0;
          return true;
      }
@@ -141,7 +147,7 @@ On the RG52 Mini, Super Mario 3D Land from its savestate, 60 s: 58.42 and
      {
          // Debug: persist.gammaos.azahar_nano.transfer_log=1 logs every display transfer.
          static const bool tlog = [] {
-@@ -1737,6 +1778,9 @@
+@@ -1794,6 +1835,9 @@ bool RasterizerVulkan::OnDisplayTransferEye(const Pica::DisplayTransferConfig& c
      const bool is_top = config.output_width.Value() == 240 && config.output_height.Value() == 400;
      const bool pair_of_left = is_top && in == eye_rt &&
                                static_cast<s64>(out) == static_cast<s64>(eye_left_out) + d1;
@@ -151,7 +157,7 @@ On the RG52 Mini, Super Mario 3D Land from its savestate, 60 s: 58.42 and
      if (eye_phase == EyePhase::Skipping) {
          eye_phase = EyePhase::Idle;
          if (pair_of_left) {
-@@ -1763,13 +1807,82 @@
+@@ -1820,13 +1864,82 @@ bool RasterizerVulkan::OnDisplayTransferEye(const Pica::DisplayTransferConfig& c
          eye_rt = in;
          eye_left_out = out;
          eye_draws_after_left = false;
@@ -234,9 +240,11 @@ On the RG52 Mini, Super Mario 3D Land from its savestate, 60 s: 58.42 and
      if (!OnDisplayTransferEye(config)) {
          return true;
      }
+diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.h b/src/video_core/renderer_vulkan/vk_rasterizer.h
+index 0e8e2db0790319c52931c18bba8221ecc1964f35..1405fdb1bdfa14946b3da7248882f87445c4ab2f 100644
 --- a/src/video_core/renderer_vulkan/vk_rasterizer.h
 +++ b/src/video_core/renderer_vulkan/vk_rasterizer.h
-@@ -188,12 +188,25 @@
+@@ -190,12 +190,25 @@ private:
      std::unordered_map<u64, u32> budget_held_since; ///< pipeline hash -> first held frame ///< GammaOS: this software draw replaces a declined hw draw
      PAddr eye_rt = 0;               // render target of the left-eye transfer
      PAddr eye_left_out = 0;         // where the left-eye image went

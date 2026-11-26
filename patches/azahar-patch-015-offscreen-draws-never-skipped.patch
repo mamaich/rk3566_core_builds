@@ -18,11 +18,13 @@ screen image. Waiting only costs when the pipeline is new.
 
 The hybrid path is on here too (gammaos_hybrid_shaders, settings.h).
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
 diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
-index 05255986c7e..dc9f980d241 100644
+index 6d5da8289f4d1e327f6781c386ba2b24f87dd2e1..1f834d949041999557321fb0e9f1ab66e7011a3f 100644
 --- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 +++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
-@@ -819,14 +819,15 @@ bool RasterizerVulkan::AccelerateDrawBatchInternal(bool is_indexed) {
+@@ -840,14 +840,15 @@ bool RasterizerVulkan::AccelerateDrawBatchInternal(bool is_indexed) {
                  const u32 verts = regs.pipeline.num_vertices;
                  bool sw_ready = pipeline_cache.BindPipeline(sw_info, false);
                  hybrid_baked = false;
@@ -44,7 +46,7 @@ index 05255986c7e..dc9f980d241 100644
                      sw_ready = pipeline_cache.BindPipeline(sw_info, true);
                  }
                  if (!sw_ready) {
-@@ -887,7 +888,7 @@ bool RasterizerVulkan::AccelerateDrawBatchInternal(bool is_indexed) {
+@@ -908,7 +909,7 @@ bool RasterizerVulkan::AccelerateDrawBatchInternal(bool is_indexed) {
          const bool wait_built =
              !async_shaders || (!async_small && regs.pipeline.num_vertices <= 6);
          if (!pipeline_cache.BindPipeline(pipeline_info, wait_built) &&
@@ -53,7 +55,7 @@ index 05255986c7e..dc9f980d241 100644
              return true;
          }
      }
-@@ -1364,7 +1365,7 @@ bool RasterizerVulkan::Draw(bool accelerate, bool is_indexed) {
+@@ -1396,7 +1397,7 @@ bool RasterizerVulkan::Draw(bool accelerate, bool is_indexed) {
              // Skip mode: draw once the fast software path pipeline is built (it builds in
              // the background, about 55 ms); until then this draw is left out.
              if (!pipeline_cache.BindPipeline(pipeline_info, false) &&
@@ -62,7 +64,7 @@ index 05255986c7e..dc9f980d241 100644
                  if (hybrid_baked) {
                      u32 variant_key = 0;
                      std::array<u32, 16> pack{};
-@@ -1817,15 +1818,25 @@ bool RasterizerVulkan::OnDisplayTransferEye(const Pica::DisplayTransferConfig& c
+@@ -1882,15 +1883,25 @@ bool RasterizerVulkan::OnDisplayTransferEye(const Pica::DisplayTransferConfig& c
      return true;
  }
  
@@ -92,7 +94,7 @@ index 05255986c7e..dc9f980d241 100644
          if (src.start == start && src.end == end) {
              slot = &src;
              break;
-@@ -1843,19 +1854,12 @@ void RasterizerVulkan::NoteBottomScreenSource(const Pica::DisplayTransferConfig&
+@@ -1908,19 +1919,12 @@ void RasterizerVulkan::NoteBottomScreenSource(const Pica::DisplayTransferConfig&
  // changes, so with a cold cache the last update before it went static could miss its draws and the
  // bottom screen kept the 3D scene under it until the next change. The scene's own full-target pass
  // is not inside that memory and keeps the fallback. Waiting only costs when the pipeline is new.
@@ -113,7 +115,7 @@ index 05255986c7e..dc9f980d241 100644
      const s32 width = config.GetWidth(), height = config.GetHeight();
      const auto vp = regs.rasterizer.GetViewportRect();
      VideoCore::SurfaceParams params;
-@@ -1871,8 +1875,23 @@ bool RasterizerVulkan::DrawFeedsBottomScreen() const {
+@@ -1936,8 +1940,23 @@ bool RasterizerVulkan::DrawFeedsBottomScreen() const {
          static_cast<u32>(std::clamp(vp.right, 0, width)),
          static_cast<u32>(std::clamp(vp.bottom, 0, height)),
      });
@@ -139,7 +141,7 @@ index 05255986c7e..dc9f980d241 100644
      for (const auto& src : bottom_sources) {
          if (src.end != 0 && frame_index - src.frame < 600 && first >= src.start && last <= src.end) {
              return true;
-@@ -1881,8 +1900,39 @@ bool RasterizerVulkan::DrawFeedsBottomScreen() const {
+@@ -1946,8 +1965,39 @@ bool RasterizerVulkan::DrawFeedsBottomScreen() const {
      return false;
  }
  
@@ -181,10 +183,10 @@ index 05255986c7e..dc9f980d241 100644
          return true;
      }
 diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.h b/src/video_core/renderer_vulkan/vk_rasterizer.h
-index 4e89b5b357d..5ba58262fce 100644
+index 5fa3d1119e8b6be77bbc169eede7db703c3fdef2..7410cc119d7157c77778e44fe61c51d00368efa2 100644
 --- a/src/video_core/renderer_vulkan/vk_rasterizer.h
 +++ b/src/video_core/renderer_vulkan/vk_rasterizer.h
-@@ -205,8 +205,16 @@ class RasterizerVulkan : public VideoCore::RasterizerAccelerated {
+@@ -208,8 +208,16 @@ private:
          u32 frame = 0;
      };
      std::array<ScreenSource, 4> bottom_sources{};

@@ -46,7 +46,16 @@ bitness="$(getconf LONG_BIT)"
 # with RAM that cannot be swapped, and RetroArch takes about 345 MB less with it.
 # 029 makes an RGBA8 surface whose storage 000 defers without storage usage at all: the
 # format's traits carried it, so libmali did not compress Azahar's colour targets (AFBC).
-TAG="2126.2"
+# 2026-11-26 (dArkOS 1.13, the owner took every upstream update): on 2127.0.1. The series was
+# rebased with git (each patch a commit on 2126.2, rebased onto 2127.0.1). 010 and 021-026 are
+# upstream there and gone. 000's conflicts: 2127's MSAA beside GammaOS's render pass slots and
+# deferred clears (masked clears stay 1x, an MSAA clear is never folded), its min/max blend
+# emulation inside GammaOS's ResolveBlend (not on the uber/baked shaders, which do not emulate
+# it), its framebuffer address checks beside GammaOS's GPU worker, its PositionOutput with
+# GammaOS's vertex depth after it. Note 2127 relicensed files to GPLv3. 035 is 000's code on
+# 2127's API where the merge had no conflict to show it: GPU::Execute returns a Result,
+# VirtualToPhysicalAddress takes a size, ScaleUp a sample count, images their samples.
+TAG="2127.0.1"
 NANO="8d68e5ecaab"
 # Profile for clang's profile-guided optimisation: Super Mario 3D Land played
 # on an RG52 Mini with an instrumented build of this recipe (2026-10-20),

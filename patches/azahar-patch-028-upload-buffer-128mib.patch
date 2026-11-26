@@ -12,9 +12,13 @@ previous one, so a smaller ring costs a wait only when one frame uploads more th
 it holds; a single upload larger than the whole ring would fail the ASSERT in Map,
 and 128 MiB keeps room for a 4096x4096 RGBA8 custom texture (64 MiB).
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/video_core/renderer_vulkan/vk_texture_runtime.cpp b/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
+index 120b887b47f1d56ca34081958f569a87573c776d..cf6c6311801ce1cf81c217064e4073ecf4cc3000 100644
 --- a/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
 +++ b/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
-@@ -161,7 +161,10 @@
+@@ -166,7 +166,10 @@ vk::ImageSubresourceRange MakeSubresourceRange(vk::ImageAspectFlags aspect, u32
      };
  }
  

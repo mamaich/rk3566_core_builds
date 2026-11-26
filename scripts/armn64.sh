@@ -26,7 +26,7 @@ bitness="$(getconf LONG_BIT)"
 # has it: Zelda 59.8, AeroGauge 60.0, Air Boarder 50.4 fps, as with v1.3 (2026-11-21).
 # main 33680bc (2026-11-21), 1 commit after v1.4.1: Quit Twice and Quit Hold in the standalone app
 # (armulators). The libretro core built from it is byte for byte v1.4.1's; both patches apply (2026-11-25).
-commit="33680bcb65f32e98147b710adff42367aa451109"
+commit="2c1889c6bd322ca4c7f14f6936bccf4695223358"
 
 	# armn64 libretro core build
 	if [[ "$var" == "armn64"  || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then

@@ -11,9 +11,14 @@ aborts. Super Mario 3D Land does it at the start of world 6-3.
 The extension is not taken on that driver; unused units get the black
 texture, as before patch 024.
 ---
+
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/video_core/renderer_vulkan/vk_instance.cpp b/src/video_core/renderer_vulkan/vk_instance.cpp
+index 846d8297133d5b3c7fa9c7b5b8c5660f946cdaa5..0a604670785e2d1053678984d9ffe6cd480a3d01 100644
 --- a/src/video_core/renderer_vulkan/vk_instance.cpp
 +++ b/src/video_core/renderer_vulkan/vk_instance.cpp
-@@ -510,7 +510,12 @@
+@@ -512,7 +512,12 @@ bool Instance::CreateDevice() {
      const bool has_index_type_uint8 =
          add_extension(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME, is_moltenvk,
                        "uint8 index conversion causes memory leaks in MoltenVK");

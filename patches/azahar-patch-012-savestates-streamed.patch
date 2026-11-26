@@ -32,9 +32,13 @@ The frame now carries no content size, so an older core cannot load a state
 made by this one. A state made by an older core still loads here, since
 decompression reads the stream either way.
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/citra_libretro/citra_libretro.cpp b/src/citra_libretro/citra_libretro.cpp
+index 1434e419de868e651f5ef2a6080183c555726113..3e005fff202a514cc58c9a31b5d2c9c9e7db4922 100644
 --- a/src/citra_libretro/citra_libretro.cpp
 +++ b/src/citra_libretro/citra_libretro.cpp
-@@ -226,6 +226,8 @@
+@@ -227,6 +227,8 @@ static void UpdateSettings() {
  /// dArkOS: whether the RG52 Mini's Back key is down. It is BTN_TRIGGER_HAPPY1 of the built-in
  /// pad, which the RetroPad has no button for, so it is read from the pad's event device
  /// (EVIOCGKEY only reads the state: RetroArch still gets every event).
@@ -43,7 +47,7 @@ decompression reads the stream either way.
  static bool BackKeyDown() {
      static int fd = -2;
      if (fd == -2) {
-@@ -259,6 +261,7 @@
+@@ -260,6 +262,7 @@ static bool BackKeyDown() {
  #endif
  
  void retro_run() {
@@ -51,7 +55,7 @@ decompression reads the stream either way.
      if (!emu_instance->game_loaded) {
          // Game failed to load (e.g. encrypted ROM, bad path).
          // Present an empty frame so RetroArch doesn't hang.
-@@ -520,6 +523,7 @@
+@@ -530,6 +533,7 @@ static void context_destroy() {
  }
  
  void retro_reset() {
@@ -59,7 +63,7 @@ decompression reads the stream either way.
      LOG_DEBUG(Frontend, "retro_reset");
      Core::System::GetInstance().Shutdown();
      emu_instance->game_loaded = do_load_game();
-@@ -662,6 +666,7 @@
+@@ -672,6 +676,7 @@ bool retro_load_game(const struct retro_game_info* info) {
  }
  
  void retro_unload_game() {
@@ -67,7 +71,7 @@ decompression reads the stream either way.
      LOG_DEBUG(Frontend, "Unloading game...");
      Core::System::GetInstance().Shutdown();
  }
-@@ -716,39 +721,52 @@
+@@ -726,39 +731,52 @@ static bool DrainAsyncOperations(Core::System& system) {
      return true;
  }
  
@@ -130,7 +134,7 @@ decompression reads the stream either way.
      auto& system = Core::System::GetInstance();
      if (!system.IsPoweredOn())
          return false;
-@@ -776,6 +794,8 @@
+@@ -786,6 +804,8 @@ size_t retro_get_memory_size(unsigned id) {
      return 0;
  }
  
@@ -141,6 +145,8 @@ decompression reads the stream either way.
 -void retro_cheat_set(unsigned index, bool enabled, const char* code) {}
 +void retro_cheat_set(unsigned index, bool enabled, const char* code) {
 +    DropSavestate();}
+diff --git a/src/core/savestate.cpp b/src/core/savestate.cpp
+index b44f14bc500610c4a38871ff792b660d9e2fd1bc..5a53ffd33f1596d813d079220981ca3e633e840d 100644
 --- a/src/core/savestate.cpp
 +++ b/src/core/savestate.cpp
 @@ -5,6 +5,7 @@
@@ -151,7 +157,7 @@ decompression reads the stream either way.
  #include <sstream>
  #include <streambuf>
  #include <zstd.h>
-@@ -326,6 +327,143 @@
+@@ -326,6 +327,143 @@ bool WriteCompressedChunks(FileUtil::IOFile& file, std::deque<std::vector<char>>
      return ok;
  }
  
@@ -295,7 +301,7 @@ decompression reads the stream either way.
  } // namespace
  
  void System::SaveState(u32 slot) const {
-@@ -464,15 +602,6 @@
+@@ -466,15 +604,6 @@ void System::LoadState(u32 slot) {
  }
  
  std::vector<u8> System::SaveStateBuffer() const {
@@ -311,7 +317,7 @@ decompression reads the stream either way.
      CSTHeader header{};
      header.filetype = header_magic_bytes;
      header.program_id = title_id;
-@@ -493,8 +622,28 @@
+@@ -495,8 +624,28 @@ std::vector<u8> System::SaveStateBuffer() const {
      std::memcpy(header.build_version.data(), build_version.c_str(),
                  std::min(build_version.length(), sizeof(header.build_version) - 1));
  
@@ -341,7 +347,7 @@ decompression reads the stream either way.
  
      return result;
  }
-@@ -528,17 +677,23 @@
+@@ -530,17 +679,23 @@ bool System::LoadStateBuffer(std::vector<u8> buffer) {
                      Common::g_scm_rev, revision);
      }
  

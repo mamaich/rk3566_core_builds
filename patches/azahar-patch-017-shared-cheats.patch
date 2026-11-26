@@ -31,9 +31,13 @@ are made 2770 and the files 0660, group media_rw, as Android keeps them.
 AZAHAR_CHEATS_DIR, AZAHAR_CHEAT_DB and AZAHAR_RA_CHEATS_DIR override the
 three paths.
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/citra_libretro/CMakeLists.txt b/src/citra_libretro/CMakeLists.txt
+index e28f9941bc71683a033b58b4a14d600b1f33d00b..8222d3dc029d90e2f7dbe1134c2a04e6f11c0501 100644
 --- a/src/citra_libretro/CMakeLists.txt
 +++ b/src/citra_libretro/CMakeLists.txt
-@@ -13,7 +13,9 @@
+@@ -13,7 +13,9 @@ add_library(citra_libretro_common OBJECT
          environment.cpp
          environment.h
          core_settings.cpp
@@ -44,27 +48,8 @@ three paths.
  
  target_compile_definitions(citra_libretro_common PRIVATE HAVE_LIBRETRO)
  target_link_libraries(citra_libretro_common PRIVATE citra_common citra_core video_core libretro tsl::robin_map)
---- a/src/citra_libretro/core_settings.cpp
-+++ b/src/citra_libretro/core_settings.cpp
-@@ -8,6 +8,7 @@
- 
- #include "citra_libretro/core_settings.h"
- #include "citra_libretro/environment.h"
-+#include "citra_libretro/shared_cheats.h"
- 
- #include "common/file_util.h"
- #include "common/settings.h"
-@@ -1310,6 +1311,10 @@
-     ParseLayoutOptions();
-     ParseStorageOptions();
-     ParseInputOptions();
-+
-+    // dArkOS: the user paths were just set again; the cheats folder is the one shared with
-+    // GammaOS (shared_cheats.h).
-+    SharedCheats::UseSharedDir();
- }
- 
- } // namespace LibRetro
+diff --git a/src/citra_libretro/citra_libretro.cpp b/src/citra_libretro/citra_libretro.cpp
+index 1f1c1f9b253cb8a439236f24b57745e1b0045825..8d2363ff90a56ee7c46f0008312f48f119029226 100644
 --- a/src/citra_libretro/citra_libretro.cpp
 +++ b/src/citra_libretro/citra_libretro.cpp
 @@ -40,6 +40,7 @@
@@ -75,7 +60,7 @@ three paths.
  
  #include "common/arch.h"
  #if CITRA_ARCH(x86_64)
-@@ -276,6 +277,8 @@
+@@ -277,6 +278,8 @@ void retro_run() {
          Core::System::GetInstance().ApplySettings();
          emu_instance->emu_window->UpdateLayout();
      }
@@ -84,7 +69,7 @@ three paths.
  
      // Poll microphone input from the frontend and buffer it for the emulator
      // This must be done from the main thread as LibRetro's mic interface is not thread-safe
-@@ -587,6 +590,8 @@
+@@ -597,6 +600,8 @@ bool retro_load_game(const struct retro_game_info* info) {
              program_id = 0;
          }
          LibRetro::SetTitle(program_id);
@@ -93,7 +78,7 @@ three paths.
          // Stash the loader so System::Load can reuse it instead of re-opening
          Core::System::GetInstance().RegisterAppLoaderEarly(loader);
      }
-@@ -674,6 +679,7 @@
+@@ -684,6 +689,7 @@ bool retro_load_game(const struct retro_game_info* info) {
  void retro_unload_game() {
      DropSavestate();
      LOG_DEBUG(Frontend, "Unloading game...");
@@ -101,7 +86,7 @@ three paths.
      Core::System::GetInstance().Shutdown();
  }
  
-@@ -801,7 +807,11 @@
+@@ -811,7 +817,11 @@ size_t retro_get_memory_size(unsigned id) {
  }
  
  void retro_cheat_reset() {
@@ -115,44 +100,32 @@ three paths.
 +    DropSavestate();
 +    LibRetro::SharedCheats::Set(index, enabled, code);
 +}
---- /dev/null
-+++ b/src/citra_libretro/shared_cheats.h
-@@ -0,0 +1,35 @@
-+// Copyright 2026 dArkOS RG52 Mini port
-+// Licensed under GPLv2 or any later version
-+// Refer to the license.txt file included.
+diff --git a/src/citra_libretro/core_settings.cpp b/src/citra_libretro/core_settings.cpp
+index bacf69e0f8a29d7823b35f469ce26837b675cebf..b3781b5ceae1f79b26214ff1c70436b07b1cf9e9 100644
+--- a/src/citra_libretro/core_settings.cpp
++++ b/src/citra_libretro/core_settings.cpp
+@@ -8,6 +8,7 @@
+ 
+ #include "citra_libretro/core_settings.h"
+ #include "citra_libretro/environment.h"
++#include "citra_libretro/shared_cheats.h"
+ 
+ #include "common/file_util.h"
+ #include "common/settings.h"
+@@ -1340,6 +1341,10 @@ void ParseCoreOptions(void) {
+     ParseLayoutOptions();
+     ParseStorageOptions();
+     ParseInputOptions();
 +
-+#pragma once
-+
-+#include <string>
-+#include "common/common_types.h"
-+
-+/// dArkOS: 3DS cheats in a folder shared with GammaOS's azahar-nano, and RetroArch's cheat menu
-+/// over them. ROMs/cheats/3ds/azahar (here /roms/cheats/3ds/azahar; Azahar's own format, other 3DS
-+/// emulators may differ) holds, as azahar-nano's CheatDb does:
-+///   <TID>.txt         every cheat of a title with its *citra_enabled mark: the file Azahar's
-+///                     cheat engine loads at boot (its cheats folder points here) and saves to
-+///   custom/<TID>.txt  the user's own cheats, as written
-+/// Before a game boots, <TID>.txt is rebuilt from custom/ and then the database (GammaOS's
-+/// cheats3ds.zip, unpacked), the marks kept by name, and RetroArch gets the same list as the
-+/// game's cheat file, which it reads right after retro_load_game (Quick Menu > Cheats).
-+namespace LibRetro::SharedCheats {
-+
-+/// Points Azahar's cheats folder at the shared one; again after every FileUtil::SetUserPath.
-+void UseSharedDir();
-+
-+/// Rebuilds the title's list and hands it to RetroArch. Called from retro_load_game.
-+void Prepare(u64 title_id, const std::string& content_path);
-+
-+/// retro_cheat_reset and retro_cheat_set: RetroArch applies its list as a reset and then one set
-+/// per enabled cheat, numbered among the enabled ones only, so a cheat is found by its code.
-+void Reset();
-+void Set(unsigned index, bool enabled, const char* code);
-+
-+/// Saves the marks RetroArch changed into <TID>.txt (nothing to do when none changed).
-+void Flush();
-+
-+} // namespace LibRetro::SharedCheats
++    // dArkOS: the user paths were just set again; the cheats folder is the one shared with
++    // GammaOS (shared_cheats.h).
++    SharedCheats::UseSharedDir();
+ }
+ 
+ } // namespace LibRetro
+diff --git a/src/citra_libretro/shared_cheats.cpp b/src/citra_libretro/shared_cheats.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..ba76cb745b888fa9f61164f6b1be3f9c59fe9870
 --- /dev/null
 +++ b/src/citra_libretro/shared_cheats.cpp
 @@ -0,0 +1,492 @@
@@ -646,5 +619,46 @@ three paths.
 +    UseSharedDir(); // an option change reset the user paths
 +    system.CheatEngine().SaveCheatFile(g_title_id);
 +}
++
++} // namespace LibRetro::SharedCheats
+diff --git a/src/citra_libretro/shared_cheats.h b/src/citra_libretro/shared_cheats.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..bc45d072be735b7dbdf50f84dfc6bb66a852e967
+--- /dev/null
++++ b/src/citra_libretro/shared_cheats.h
+@@ -0,0 +1,35 @@
++// Copyright 2026 dArkOS RG52 Mini port
++// Licensed under GPLv2 or any later version
++// Refer to the license.txt file included.
++
++#pragma once
++
++#include <string>
++#include "common/common_types.h"
++
++/// dArkOS: 3DS cheats in a folder shared with GammaOS's azahar-nano, and RetroArch's cheat menu
++/// over them. ROMs/cheats/3ds/azahar (here /roms/cheats/3ds/azahar; Azahar's own format, other 3DS
++/// emulators may differ) holds, as azahar-nano's CheatDb does:
++///   <TID>.txt         every cheat of a title with its *citra_enabled mark: the file Azahar's
++///                     cheat engine loads at boot (its cheats folder points here) and saves to
++///   custom/<TID>.txt  the user's own cheats, as written
++/// Before a game boots, <TID>.txt is rebuilt from custom/ and then the database (GammaOS's
++/// cheats3ds.zip, unpacked), the marks kept by name, and RetroArch gets the same list as the
++/// game's cheat file, which it reads right after retro_load_game (Quick Menu > Cheats).
++namespace LibRetro::SharedCheats {
++
++/// Points Azahar's cheats folder at the shared one; again after every FileUtil::SetUserPath.
++void UseSharedDir();
++
++/// Rebuilds the title's list and hands it to RetroArch. Called from retro_load_game.
++void Prepare(u64 title_id, const std::string& content_path);
++
++/// retro_cheat_reset and retro_cheat_set: RetroArch applies its list as a reset and then one set
++/// per enabled cheat, numbered among the enabled ones only, so a cheat is found by its code.
++void Reset();
++void Set(unsigned index, bool enabled, const char* code);
++
++/// Saves the marks RetroArch changed into <TID>.txt (nothing to do when none changed).
++void Flush();
 +
 +} // namespace LibRetro::SharedCheats

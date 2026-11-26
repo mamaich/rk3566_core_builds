@@ -13,8 +13,10 @@ cur_wd="$PWD"
 bitness="$(getconf LONG_BIT)"
 # rg52mini: pinned (2026-11-15). This recipe built upstream's head, and on 2026-11-13 upstream's
 # b352039 changed the Makefile line that gametank-patch-002 edits: the patch no longer applied and
-# a full image build stopped here. acc608a (2026-11-02) is the commit 1.6 to 1.9 were built from.
-commit="acc608afcfef0999ca17aba4f3e5aa572d202176"
+# a full image build stopped here. acc608a (2026-11-02) is the commit 1.6 to 1.12 were built from.
+# 6ac0c0a (2026-11-25, for 1.13): audio start without a pop, the blitter's registers initialized;
+# gametank-patch-002 ported to b352039's line (the compat.h include kept).
+commit="6ac0c0aa65cca07c22055ad489bfa0a09de86770"
 
 	# gametank git
 	if [[ "$var" == "gametank" ]] && [[ "$bitness" == "64" ]]; then

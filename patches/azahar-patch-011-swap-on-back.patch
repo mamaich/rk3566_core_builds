@@ -16,6 +16,10 @@ option (toggle or hold the button) is gone. Which screen is the prominent one
 is still chosen in the core options (Prominent 3DS Screen). L3 is still the
 3DS's HOME button.
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/citra_libretro/citra_libretro.cpp b/src/citra_libretro/citra_libretro.cpp
+index 54df4dcdc28e86bdd50cfde67e200f9c7b439b01..1434e419de868e651f5ef2a6080183c555726113 100644
 --- a/src/citra_libretro/citra_libretro.cpp
 +++ b/src/citra_libretro/citra_libretro.cpp
 @@ -29,6 +29,14 @@
@@ -33,7 +37,7 @@ is still chosen in the core options (Prominent 3DS Screen). L3 is still the
  #include "citra_libretro/core_settings.h"
  #include "citra_libretro/environment.h"
  #include "citra_libretro/input/input_factory.h"
-@@ -127,7 +135,7 @@
+@@ -128,7 +136,7 @@ static void UpdateSettings() {
          {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "ZR"},
          {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Start"},
          {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Select"},
@@ -42,7 +46,7 @@ is still chosen in the core options (Prominent 3DS Screen). L3 is still the
          {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3, "Touch Screen Touch"},
          {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X,
           "Circle Pad X"},
-@@ -214,6 +222,42 @@
+@@ -215,6 +223,42 @@ static void UpdateSettings() {
  /**
   * libretro callback; Called every game tick.
   */
@@ -85,7 +89,7 @@ is still chosen in the core options (Prominent 3DS Screen). L3 is still the
  void retro_run() {
      if (!emu_instance->game_loaded) {
          // Game failed to load (e.g. encrypted ROM, bad path).
-@@ -236,38 +280,23 @@
+@@ -237,38 +281,23 @@ void retro_run() {
          mic_input->PollMicrophone();
      }
  
@@ -133,12 +137,15 @@ is still chosen in the core options (Prominent 3DS Screen). L3 is still the
  
  #ifdef ENABLE_OPENGL
      if (Settings::values.graphics_api.GetValue() == Settings::GraphicsAPI::OpenGL) {
+diff --git a/src/citra_libretro/core_settings.cpp b/src/citra_libretro/core_settings.cpp
+index d031f5081299503e6f3f8d623c3b20d5e19c33da..a52bd8436016145793e322c38225613478b05b7b 100644
 --- a/src/citra_libretro/core_settings.cpp
 +++ b/src/citra_libretro/core_settings.cpp
-@@ -518,20 +518,6 @@
+@@ -537,20 +537,6 @@ static constexpr retro_core_option_v2_definition option_definitions[] = {
+         },
          "Top"
      },
-     {
+-    {
 -        config::layout::swap_screen_mode,
 -        "Screen Swap Mode",
 -        "Swap Mode",
@@ -152,7 +159,6 @@ is still chosen in the core options (Prominent 3DS Screen). L3 is still the
 -        },
 -        "Toggle"
 -    },
--    {
+     {
          config::layout::large_screen_proportion,
-         "Large Screen Proportion",
          "Large Screen Proportion",

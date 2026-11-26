@@ -17,9 +17,13 @@ libmali session's memory dump, 2026-10-30). Fragment work a frame against 028: C
 73.8); the frame rate the same within noise. The pipeline cache stays valid: the layout is
 chosen when the image is made.
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/video_core/renderer_vulkan/vk_texture_runtime.cpp b/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
+index cf6c6311801ce1cf81c217064e4073ecf4cc3000..5a3c2f53144b60e4295f3142bd07138201c259d8 100644
 --- a/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
 +++ b/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
-@@ -892,6 +892,11 @@
+@@ -913,6 +913,11 @@ Surface::Surface(TextureRuntime& runtime_, const VideoCore::SurfaceParams& param
          // shadow-source texture that will get used in the utility descriptor-set
          usage |= vk::ImageUsageFlagBits::eStorage;
      }
@@ -30,4 +34,4 @@ chosen when the image is made.
 +    }
  
      const bool need_format_list = is_mutable && instance.IsImageFormatListSupported();
-     handles[Type::Base].Create(width, height, levels, texture_type, format, usage, flags,
+     handles[Type::Base].Create(width, height, levels, texture_type, format,

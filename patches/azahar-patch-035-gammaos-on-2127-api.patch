@@ -1,0 +1,184 @@
+dArkOS: GammaOS's azahar-nano code (patch 000) on Azahar 2127.0.1's API
+
+Written for dArkOS 1.13 (2026-11-27), after the series was rebased onto 2127.0.1: the rebase merged
+000 with 2127 without conflicts in these places, but 2127 changed what they call.
+
+- GPU::Execute returns a Result in 2127 (the GSP service hands it to the guest), and
+  VirtualToPhysicalAddress takes the size and returns an optional. GammaOS's async GPU paths
+  return success (the command runs later on its worker, as GammaOS has it); the synchronous path
+  returns the command's own result (ExecuteCommand now returns it). A command list's address is
+  translated with its size, as upstream does; the diagnostics' log lines with one byte.
+- GetFramebufferSurfaces: 2126.2 kept a colour surface pointer for the whole function, which
+  GammaOS refreshed after EnsureStorage (it may grow slot_surfaces). 2127 takes fresh pointers
+  where the framebuffer is made, so the refresh goes.
+- The stereo twin's mirror copy (MaterializeMirror) grows its destination to the source's scale
+  and sample count, as 2127's CopySurface does (ScaleUp takes both now).
+- EnsureStorage makes the Base and Scaled images again single sampled, as 2127 makes them; its MSAA
+  image is a third handle and is not touched.
+
+diff --git a/src/video_core/gpu.cpp b/src/video_core/gpu.cpp
+index 76f44797ecf45d716b814ef019071a4fdb0b6560..f8f53d5caa77295450eb308f286eeb4b1b34e41d 100644
+--- a/src/video_core/gpu.cpp
++++ b/src/video_core/gpu.cpp
+@@ -1329,7 +1329,7 @@ Result GPU::Execute(const Service::GSP::Command& command) {
+     // order. Every other command touches GPU state here and waits for the worker first.
+     if (async && command.id == CommandId::SubmitCmdList) {
+         const auto& params = command.submit_gpu_cmdlist;
+-        const u32 paddr = VirtualToPhysicalAddress(params.address);
++        const u32 paddr = VirtualToPhysicalAddress(params.address, params.size).value_or(0);
+         const u32 size = params.size;
+         CmdListCopy copy{};
+         if (async->eager) {
+@@ -1371,7 +1371,7 @@ Result GPU::Execute(const Service::GSP::Command& command) {
+             GammaSnapshot::t_owner.reset();
+             impl->cmd_copy = nullptr;
+         });
+-        return;
++        return ResultSuccess;
+     }
+     // Diagnostics: persist.gammaos.azahar_nano.async_gpu_flush=0 makes CacheFlush wait for the
+     // worker again, async_gpu_dma=0 runs RequestDma on the emulation thread after a wait.
+@@ -1398,39 +1398,39 @@ Result GPU::Execute(const Service::GSP::Command& command) {
+             case CommandId::CacheFlush: {
+                 const auto& r = command.cache_flush.regions;
+                 LOG_INFO(HW_GPU, "gx flush {:08X}/{:X} {:08X}/{:X} {:08X}/{:X}",
+-                         VirtualToPhysicalAddress(r[0].address), r[0].size,
+-                         VirtualToPhysicalAddress(r[1].address), r[1].size,
+-                         VirtualToPhysicalAddress(r[2].address), r[2].size);
++                         VirtualToPhysicalAddress(r[0].address, 1).value_or(0), r[0].size,
++                         VirtualToPhysicalAddress(r[1].address, 1).value_or(0), r[1].size,
++                         VirtualToPhysicalAddress(r[2].address, 1).value_or(0), r[2].size);
+                 break;
+             }
+             case CommandId::MemoryFill:
+                 LOG_INFO(HW_GPU, "gx fill {:08X}-{:08X} {:08X}-{:08X}",
+-                         VirtualToPhysicalAddress(command.memory_fill.start1),
+-                         VirtualToPhysicalAddress(command.memory_fill.end1),
+-                         VirtualToPhysicalAddress(command.memory_fill.start2),
+-                         VirtualToPhysicalAddress(command.memory_fill.end2));
++                         VirtualToPhysicalAddress(command.memory_fill.start1, 1).value_or(0),
++                         VirtualToPhysicalAddress(command.memory_fill.end1, 1).value_or(0),
++                         VirtualToPhysicalAddress(command.memory_fill.start2, 1).value_or(0),
++                         VirtualToPhysicalAddress(command.memory_fill.end2, 1).value_or(0));
+                 break;
+             case CommandId::DisplayTransfer:
+                 LOG_INFO(HW_GPU, "gx transfer {:08X} -> {:08X} out {:X}",
+-                         VirtualToPhysicalAddress(command.display_transfer.in_buffer_address),
+-                         VirtualToPhysicalAddress(command.display_transfer.out_buffer_address),
++                         VirtualToPhysicalAddress(command.display_transfer.in_buffer_address, 1).value_or(0),
++                         VirtualToPhysicalAddress(command.display_transfer.out_buffer_address, 1).value_or(0),
+                          command.display_transfer.out_buffer_size);
+                 break;
+             case CommandId::TextureCopy:
+                 LOG_INFO(HW_GPU, "gx texcopy {:08X} -> {:08X} size {:X}",
+-                         VirtualToPhysicalAddress(command.texture_copy.in_buffer_address),
+-                         VirtualToPhysicalAddress(command.texture_copy.out_buffer_address),
++                         VirtualToPhysicalAddress(command.texture_copy.in_buffer_address, 1).value_or(0),
++                         VirtualToPhysicalAddress(command.texture_copy.out_buffer_address, 1).value_or(0),
+                          command.texture_copy.size);
+                 break;
+             case CommandId::RequestDma:
+                 LOG_INFO(HW_GPU, "gx dma {:08X} -> {:08X} size {:X}",
+-                         VirtualToPhysicalAddress(command.dma_request.source_address),
+-                         VirtualToPhysicalAddress(command.dma_request.dest_address),
++                         VirtualToPhysicalAddress(command.dma_request.source_address, 1).value_or(0),
++                         VirtualToPhysicalAddress(command.dma_request.dest_address, 1).value_or(0),
+                          command.dma_request.size);
+                 break;
+             case CommandId::SubmitCmdList:
+                 LOG_INFO(HW_GPU, "gx list {:08X} size {:X}",
+-                         VirtualToPhysicalAddress(command.submit_gpu_cmdlist.address),
++                         VirtualToPhysicalAddress(command.submit_gpu_cmdlist.address, 1).value_or(0),
+                          command.submit_gpu_cmdlist.size);
+                 break;
+             default:
+@@ -1439,7 +1439,7 @@ Result GPU::Execute(const Service::GSP::Command& command) {
+         }
+     }
+     if (AsyncQueued() && command.id == CommandId::CacheFlush && flush_free) {
+-        return; // nothing to do, and nothing to wait for
++        return ResultSuccess; // nothing to do, and nothing to wait for
+     }
+     // persist.gammaos.azahar_nano.async_gpu_flush_lag=N: CacheFlush lets N jobs stay in flight
+     // instead of waiting for the whole queue (0 = wait for everything, the safe default).
+@@ -1457,7 +1457,7 @@ Result GPU::Execute(const Service::GSP::Command& command) {
+             async->WaitPendingAtMost(flush_lag);
+         }
+         async->Deliver();
+-        return;
++        return ResultSuccess;
+     }
+     if (AsyncQueued() &&
+         (command.id == CommandId::MemoryFill || command.id == CommandId::DisplayTransfer ||
+@@ -1488,14 +1488,14 @@ Result GPU::Execute(const Service::GSP::Command& command) {
+         if (command.id == CommandId::RequestDma) {
+             process = impl->system.Kernel().GetCurrentProcess();
+         }
+-        async->Enqueue([this, command, process] { ExecuteCommand(command, process); });
+-        return;
++        async->Enqueue([this, command, process] { (void)ExecuteCommand(command, process); });
++        return ResultSuccess;
+     }
+     AsyncDrain();
+-    ExecuteCommand(command, nullptr);
++    return ExecuteCommand(command, nullptr);
+ }
+ 
+-void GPU::ExecuteCommand(const Service::GSP::Command& command,
++Result GPU::ExecuteCommand(const Service::GSP::Command& command,
+                          std::shared_ptr<Kernel::Process> dma_process) {
+     using Service::GSP::CommandId;
+     auto& regs = impl->pica.regs;
+diff --git a/src/video_core/gpu.h b/src/video_core/gpu.h
+index 414a79a3deb213cfb5e76756d47898ddbbb67944..7d8cb844f9538ced931d3f2bddd9719b6b31815a 100644
+--- a/src/video_core/gpu.h
++++ b/src/video_core/gpu.h
+@@ -180,7 +180,7 @@ private:
+     const u32* ChainedCopyFor(PAddr addr, u32& size) const;
+     CmdListCopy EagerRegWrite(u32 index, u32 data);
+     void SyncShadow();
+-    void ExecuteCommand(const Service::GSP::Command& command,
++    Result ExecuteCommand(const Service::GSP::Command& command,
+                         std::shared_ptr<Kernel::Process> dma_process);
+     void SetBufferSwapNow(u32 screen_id, const Service::GSP::FrameBufferInfo& info,
+                           bool count_frame);
+diff --git a/src/video_core/rasterizer_cache/rasterizer_cache.h b/src/video_core/rasterizer_cache/rasterizer_cache.h
+index d1e6f4486b88d87d016b2cf91c03076fb5d9a211..e1bb0330f0401e8ed89236eac8307eb2e0ae660d 100644
+--- a/src/video_core/rasterizer_cache/rasterizer_cache.h
++++ b/src/video_core/rasterizer_cache/rasterizer_cache.h
+@@ -694,8 +694,9 @@ void RasterizerCache<T>::MaterializeMirror() {
+         }
+         Surface& src = slot_surfaces[src_id];
+         Surface& dst = slot_surfaces[dst_id];
+-        if (src.res_scale > dst.res_scale) {
+-            dst.ScaleUp(src.res_scale);
++        if (src.res_scale > dst.res_scale || src.sample_count > dst.sample_count) {
++            dst.ScaleUp(std::max(src.res_scale, dst.res_scale),
++                        std::max(src.sample_count, dst.sample_count));
+         }
+         const TextureCopy copy = {
+             .src_level = 0,
+@@ -1174,7 +1175,6 @@ FramebufferHelper<T> RasterizerCache<T>::GetFramebufferSurfaces(bool using_color
+     if (shadow_rendering && color_id) {
+         // Shadow maps are written through the colour surface's storage view.
+         EnsureStorage(color_id);
+-        color_surface = &slot_surfaces[color_id];
+     }
+ 
+     const FramebufferParams fb_params = {
+diff --git a/src/video_core/renderer_vulkan/vk_texture_runtime.cpp b/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
+index 5a3c2f53144b60e4295f3142bd07138201c259d8..2e95962e3587d2766b4c4361a5f58a7c342f0e98 100644
+--- a/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
++++ b/src/video_core/renderer_vulkan/vk_texture_runtime.cpp
+@@ -1517,8 +1517,9 @@ bool Surface::EnsureStorage() {
+             continue;
+         }
+         Handle fresh(instance);
+-        fresh.Create(old.width, old.height, old.levels, texture_type, traits.native, usage,
+-                     create_flags, traits.aspect, need_format_list, DebugName(type == Type::Scaled));
++        fresh.Create(old.width, old.height, old.levels, texture_type, traits.native,
++                     vk::SampleCountFlagBits::e1, usage, create_flags, traits.aspect,
++                     need_format_list, DebugName(type == Type::Scaled));
+         scheduler.Record([src = old.image, dst = fresh.image, width = old.width,
+                           height = old.height, levels = old.levels, layers = old.layers,
+                           aspect = traits.aspect](vk::CommandBuffer cmdbuf) {

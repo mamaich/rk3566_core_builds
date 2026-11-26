@@ -28,7 +28,7 @@ bitness="$(getconf LONG_BIT)"
 # interpreter while a game runs) with the two giving the same states, interrupt and fetch timing fixes, HD
 # Affine Backgrounds, layer and sound channel selection, Threaded Video off by default again, Left Stick as
 # D-Pad on by default. Apotris: 60 fps, the CPU at 8% of the four cores as with v1.8.1 (2026-11-25).
-commit="fad6c4b0c0176a76e10667f4aa071a8feb4425c0"
+commit="a25036608d02ac3a60521a3d5ef299c54374afb0"
 
 	# Libretro armgba build
 	if [[ "$var" == "armgba" || "$var" == "all" ]] && [[ "$bitness" == "64" ]]; then

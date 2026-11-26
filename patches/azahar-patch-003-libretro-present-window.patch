@@ -9,8 +9,10 @@ frame) and RenderpassNoClear() (the present pass without the clear when the
 first screen covers the frame; here the pass that clears, right for every
 layout).
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
 diff --git a/src/citra_libretro/libretro_vk.h b/src/citra_libretro/libretro_vk.h
-index 5a60f75..92170ab 100644
+index d8a4f07b74c6099d5c19b185cef3a38b2eb51603..1c475e1ba2d366da3e733af081791107b57c5237 100644
 --- a/src/citra_libretro/libretro_vk.h
 +++ b/src/citra_libretro/libretro_vk.h
 @@ -117,11 +117,19 @@ public:

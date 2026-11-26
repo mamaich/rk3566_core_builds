@@ -26,8 +26,9 @@ bitness="$(getconf LONG_BIT)"
 #commit="9c821dc21ccbd69b2bda421fdb35cb4ae2da8f5e" # SDL 2.0.30.10
 #commit="7a44b1ab002cee6efa56d3b4c0e146b7fbaed80b" # SDL 2.0.32.0
 #commit="e11183ea6caa3ae4895f4bc54cad2bbb0e365417" # SDL 2.0.32.2
-commit="5d249570393f7a37e037abf22cd6012a4cc56a71" # SDL 2.0.32.10
-extension="3200.10"
+#commit="5d249570393f7a37e037abf22cd6012a4cc56a71" # SDL 2.0.32.10
+commit="2e5b9a860e69afc9fa5259c7b1f0bd52857d475e" # SDL 2.32.11 (release-2.32.x of 2026-06-11, not released; dArkOS 1.13: the owner took every upstream update)
+extension="3200.11"
 
 if [[ $bitness == "32" ]]; then
   INSTALL_FOLDER="/usr/lib/arm-linux-gnueabihf"

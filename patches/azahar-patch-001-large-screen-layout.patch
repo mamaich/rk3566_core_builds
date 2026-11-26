@@ -1,8 +1,10 @@
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
 diff --git a/src/citra_libretro/core_settings.cpp b/src/citra_libretro/core_settings.cpp
-index 53fb164..81e976e 100644
+index 7b43e31c338518400afdca29127d16fb3592f947..66dcf21e98e0fc828889a11d38f184bb91b74fa4 100644
 --- a/src/citra_libretro/core_settings.cpp
 +++ b/src/citra_libretro/core_settings.cpp
-@@ -466,7 +466,7 @@ static constexpr retro_core_option_v2_definition option_definitions[] = {
+@@ -486,7 +486,7 @@ static constexpr retro_core_option_v2_definition option_definitions[] = {
              { "side_by_side", "Side by Side" },
              { nullptr, nullptr }
          },
@@ -11,7 +13,7 @@ index 53fb164..81e976e 100644
      },
      {
          config::layout::swap_screen,
-@@ -1018,7 +1018,7 @@ static Settings::StereoRenderOption GetStereoRenderOption(const std::string& nam
+@@ -1048,7 +1048,7 @@ static Settings::StereoRenderOption GetStereoRenderOption(const std::string& nam
  
  static void ParseLayoutOptions(void) {
      Settings::values.layout_option =

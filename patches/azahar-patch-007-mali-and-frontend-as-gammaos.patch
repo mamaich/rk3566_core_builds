@@ -20,9 +20,13 @@ GPU's time per frame is that of GammaOS (slot0 14.4 / slot1 3.7 ms against
 13.9 / 3.8 with both eyes) and the game runs at 60 frames a second with the
 right eye off, 30 before.
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
+diff --git a/src/citra_libretro/core_settings.cpp b/src/citra_libretro/core_settings.cpp
+index 1b15ff352ffcbc4376524f3b9e74aa310fa971a9..d031f5081299503e6f3f8d623c3b20d5e19c33da 100644
 --- a/src/citra_libretro/core_settings.cpp
 +++ b/src/citra_libretro/core_settings.cpp
-@@ -1016,6 +1016,17 @@
+@@ -1046,6 +1046,17 @@ static void ParseGraphicsOptions(void) {
          LibRetro::FetchVariable(config::graphics::disable_right_eye_render, config::enabled) ==
          config::enabled;
  
@@ -40,9 +44,11 @@ right eye off, 30 before.
      Settings::values.use_disk_shader_cache =
          LibRetro::FetchVariable(config::graphics::use_disk_shader_cache, config::enabled) ==
          config::enabled;
+diff --git a/src/video_core/renderer_vulkan/vk_instance.h b/src/video_core/renderer_vulkan/vk_instance.h
+index 8810343604ce88ff65b32627bc27c84a7344c4b5..8032afdc9a3a654bc99f4e9f9f5d645d6e2d1198 100644
 --- a/src/video_core/renderer_vulkan/vk_instance.h
 +++ b/src/video_core/renderer_vulkan/vk_instance.h
-@@ -124,7 +124,10 @@
+@@ -124,7 +124,10 @@ public:
          // cost even if it hurts accuracy somewhat. TODO: Make this an option
          return false;
  #else

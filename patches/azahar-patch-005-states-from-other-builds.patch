@@ -7,11 +7,13 @@ core update orphans the states made with the one before. The test build of
 both serialize the same data: Super Mario 3D Land's RetroArch state from
 2126.2 loads and plays on it. A mismatch is now a warning.
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
 diff --git a/src/core/savestate.cpp b/src/core/savestate.cpp
-index 2b98067..4cb4989 100644
+index 5bd1227d3ca37ac6d1af911d033fb7e86218c904..b44f14bc500610c4a38871ff792b660d9e2fd1bc 100644
 --- a/src/core/savestate.cpp
 +++ b/src/core/savestate.cpp
-@@ -519,11 +519,13 @@ bool System::LoadStateBuffer(std::vector<u8> buffer) {
+@@ -521,11 +521,13 @@ bool System::LoadStateBuffer(std::vector<u8> buffer) {
          return false;
      }
      std::string revision = fmt::format("{:02x}", fmt::join(header.revision, ""));

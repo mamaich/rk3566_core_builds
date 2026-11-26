@@ -14,12 +14,14 @@ on only when it finds a Mali GPU, a check made for Android only.
   kgsl node, as on Android. The real-time emulation thread (emu_rt) stays
   Android only.
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 2a6dcb9..11b6983 100644
+index e99de6a8181b39ea54ce4111fcad6a315d617f15..18c98275cce27a798893d4562e6ca76e8695c0f4 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -579,6 +579,11 @@ if (USE_SYSTEM_SOUNDTOUCH)
-     target_include_directories(SoundTouch INTERFACE "${SOUNDTOUCH_INCLUDE_DIRS}")
+@@ -620,6 +620,11 @@ if (USE_SYSTEM_FAAD)
+     pkg_check_modules(libfaad_PKGCONFIG IMPORTED_TARGET faad2 REQUIRED)
  endif()
  
 +# dArkOS: the GammaOS switches are Android properties; on Linux they come from the
@@ -30,53 +32,9 @@ index 2a6dcb9..11b6983 100644
  add_subdirectory(src)
  
  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT citra_meta)
-diff --git a/src/common/gammaos_tweak.h b/src/common/gammaos_tweak.h
-index ca0bb4c..dbeeacd 100644
---- a/src/common/gammaos_tweak.h
-+++ b/src/common/gammaos_tweak.h
-@@ -4,10 +4,8 @@
- 
- #pragma once
- 
--#ifdef ANDROID
- #include <unistd.h>
- #include <sys/system_properties.h>
--#endif
- 
- namespace Common::GammaOS {
- 
-@@ -15,20 +13,15 @@ namespace Common::GammaOS {
- /// emulation thread tweaks below default on there only, so the Adreno devices keep the
- /// behaviour they were validated with until a property turns a tweak on for them too.
- inline bool IsMaliDevice() {
--#ifdef ANDROID
-     static const bool mali =
-         access("/sys/class/kgsl/kgsl-3d0", F_OK) != 0 && access("/dev/mali0", F_OK) == 0;
-     return mali;
--#else
--    return false;
--#endif
- }
- 
- /// An emulation thread tweak: the property (persist.gammaos.azahar_nano.<name>) set to 1 turns it
- /// on, 0 turns it off, unset leaves it on for the Mali devices only (off everywhere when
- /// mali_default is false). Callers read it once and keep the result in a static.
- inline bool TweakEnabled(const char* property, bool mali_default = true) {
--#ifdef ANDROID
-     char v[PROP_VALUE_MAX] = {};
-     __system_property_get(property, v);
-     if (v[0] == '1') {
-@@ -37,7 +30,6 @@ inline bool TweakEnabled(const char* property, bool mali_default = true) {
-     if (v[0] == '0') {
-         return false;
-     }
--#endif
-     return mali_default && IsMaliDevice();
- }
- 
 diff --git a/darkos/linux/sys/system_properties.h b/darkos/linux/sys/system_properties.h
 new file mode 100755
-index 0000000..b40ebe1
+index 0000000000000000000000000000000000000000..b40ebe1310fe9ad6e4720e18bb803a26acbeb81f
 --- /dev/null
 +++ b/darkos/linux/sys/system_properties.h
 @@ -0,0 +1,44 @@
@@ -124,3 +82,47 @@ index 0000000..b40ebe1
 +    darkos_property_env_name(name, env, sizeof(env));
 +    return setenv(env, value, 1);
 +}
+diff --git a/src/common/gammaos_tweak.h b/src/common/gammaos_tweak.h
+index ca0bb4cd0ba221e9ee0627646c4aecccd7bc48a8..dbeeacd2b0c23ccf12ad0847c02eb83ba51eda42 100644
+--- a/src/common/gammaos_tweak.h
++++ b/src/common/gammaos_tweak.h
+@@ -4,10 +4,8 @@
+ 
+ #pragma once
+ 
+-#ifdef ANDROID
+ #include <unistd.h>
+ #include <sys/system_properties.h>
+-#endif
+ 
+ namespace Common::GammaOS {
+ 
+@@ -15,20 +13,15 @@ namespace Common::GammaOS {
+ /// emulation thread tweaks below default on there only, so the Adreno devices keep the
+ /// behaviour they were validated with until a property turns a tweak on for them too.
+ inline bool IsMaliDevice() {
+-#ifdef ANDROID
+     static const bool mali =
+         access("/sys/class/kgsl/kgsl-3d0", F_OK) != 0 && access("/dev/mali0", F_OK) == 0;
+     return mali;
+-#else
+-    return false;
+-#endif
+ }
+ 
+ /// An emulation thread tweak: the property (persist.gammaos.azahar_nano.<name>) set to 1 turns it
+ /// on, 0 turns it off, unset leaves it on for the Mali devices only (off everywhere when
+ /// mali_default is false). Callers read it once and keep the result in a static.
+ inline bool TweakEnabled(const char* property, bool mali_default = true) {
+-#ifdef ANDROID
+     char v[PROP_VALUE_MAX] = {};
+     __system_property_get(property, v);
+     if (v[0] == '1') {
+@@ -37,7 +30,6 @@ inline bool TweakEnabled(const char* property, bool mali_default = true) {
+     if (v[0] == '0') {
+         return false;
+     }
+-#endif
+     return mali_default && IsMaliDevice();
+ }
+ 

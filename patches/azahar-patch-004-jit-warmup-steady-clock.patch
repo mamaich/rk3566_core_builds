@@ -6,11 +6,13 @@ Android's libc++, system_clock in libstdc++, so handing its time point to
 GammaJitWarmStep (a steady_clock one) does not compile here. Pass the same
 deadline as steady_clock::now() plus the time left.
 
+Rebased onto Azahar 2127.0.1 for dArkOS 1.13 (2026-11-26, a git rebase of the series; conflicts resolved by hand).
+
 diff --git a/src/core/perf_stats.cpp b/src/core/perf_stats.cpp
-index 4b381c8..82c43be 100644
+index 14e87c6e091c76a09fe13b2aa6a369a502617974..868a8188f378fa875bd591696a2baba115f5a8b5 100644
 --- a/src/core/perf_stats.cpp
 +++ b/src/core/perf_stats.cpp
-@@ -284,7 +284,9 @@ void FrameLimiter::PaceBeforePresent(microseconds current_system_time_us) {
+@@ -311,7 +311,9 @@ void FrameLimiter::PaceBeforePresent(microseconds current_system_time_us) {
          // GammaOS JIT warm-up: use the idle wait, leaving 2 ms of slack.
          const auto warm_until = next_deadline - std::chrono::milliseconds(2);
          if (warm_until > now) {
