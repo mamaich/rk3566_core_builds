@@ -69,8 +69,17 @@ NANO="8d68e5ecaab"
 # /home/ark/rk3562_core_builds/azahar (they carry 6% of the merged counts;
 # with the training tree's paths a chroot build lost them). A new profile
 # changes this line, so the recipe's cache key changes with it.
-PGO="pgo/azahar-nano-merged-20261020.profdata.gz"
-PGO_SHA256="6709d16b1345ec79ce3a91b842b6cf435093f530c93fd592a755cd5a61888df0"
+# 2026-11-27 (2127.0.1): that profile merged with one trained on 2127 here (an
+# instrumented build of this recipe in that path; Super Mario 3D Land,
+# Castlevania, Luigi's Mansion and Sonic Generations, 150 s each from boot), the
+# new runs weighted 4 so both carry about the same total count; functions 2127
+# changed keep their old record under its old hash, which clang does not take.
+# Against the old profile alone on the same core, both warm: the same fps, the
+# main thread 1-2 points of a core less (3D Land 37 against 38%, Luigi's
+# Mansion 36-37 against 38%), the GPU thread up to 4 (Sonic Generations 10-11
+# against 14%). The core's crash on exit still leaves its profile written.
+PGO="pgo/azahar-nano-2127-20261127.profdata.gz"
+PGO_SHA256="6bc737fde2393867de0f22a49b6ab7c5e231de22b1111a262903526141c82b2a"
 
 	# Libretro Azahar (Nintendo 3DS) build
 	if [[ "$var" == "azahar" ]] && [[ "$bitness" == "64" ]]; then
